@@ -75,7 +75,7 @@ export default async function DeliveriesListPage() {
                   <TableCell className="font-mono text-sm">
                     <Link
                       className="hover:underline"
-                      href={`/orders/${d.orderId}`}
+                      href={`/deliveries/${d.id}`}
                     >
                       {d.doNumber}
                     </Link>

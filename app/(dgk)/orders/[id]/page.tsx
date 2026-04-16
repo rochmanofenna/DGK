@@ -236,13 +236,14 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           ) : (
             <div className="space-y-2">
               {order.deliveryOrders.map((dOrder) => (
-                <div
+                <Link
                   key={dOrder.id}
-                  className="flex items-center justify-between rounded border px-3 py-2 text-sm"
+                  href={`/deliveries/${dOrder.id}`}
+                  className="flex items-center justify-between rounded border px-3 py-2 text-sm transition-colors hover:bg-muted/40"
                 >
                   <span className="font-mono">{dOrder.doNumber}</span>
                   <Badge variant="outline">{dOrder.status}</Badge>
-                </div>
+                </Link>
               ))}
             </div>
           )}
