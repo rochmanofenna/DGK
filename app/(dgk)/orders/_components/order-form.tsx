@@ -80,7 +80,10 @@ export function OrderForm({ customers }: OrderFormProps) {
       packingList: {
         items: [{ description: "", quantity: 1, unit: "pcs", weightKg: null }],
       },
-      customerPriceIDR: 0,
+      // Empty string cast — RHF's `number`-typed field starts unset so the
+      // input renders the placeholder instead of a literal "0" the user has
+      // to delete. Zod's `.positive()` still enforces required-at-submit.
+      customerPriceIDR: undefined as unknown as number,
       notes: "",
     },
   })
@@ -309,12 +312,17 @@ export function OrderForm({ customers }: OrderFormProps) {
                   type="number"
                   min={0}
                   step={1000}
-                  value={field.value}
-                  onChange={(e) => field.onChange(Number(e.target.value))}
+                  placeholder="e.g. 4500000"
+                  value={field.value ?? ""}
+                  onChange={(e) =>
+                    field.onChange(
+                      e.target.value === "" ? undefined : Number(e.target.value),
+                    )
+                  }
                 />
               </FormControl>
               <FormDescription>
-                {customerPriceIDR > 0
+                {typeof customerPriceIDR === "number" && customerPriceIDR > 0
                   ? formatIDR(customerPriceIDR)
                   : "Enter the agreed price for this order."}
               </FormDescription>
