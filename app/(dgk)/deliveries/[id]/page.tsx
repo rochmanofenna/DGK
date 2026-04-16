@@ -2,16 +2,22 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 
 import { auth } from "@/auth"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatIDR } from "@/lib/currency"
 import { db } from "@/lib/db"
 import { formatWIBDate, formatWIBDateTime } from "@/lib/time"
-import { DeliveryOrderStatus, UserRole } from "@/prisma/generated/enums"
+import {
+  DeliveryOrderStatus,
+  InvoiceType,
+  UserRole,
+} from "@/prisma/generated/enums"
 
 import { StatusBadge } from "../../orders/_components/status-badge"
 
 import { ChecklistForm } from "./_components/checklist-form"
+import { GenerateInvoiceButton } from "./_components/generate-invoice-button"
 import { PodDisplay } from "./_components/pod-display"
 import { PodUploadForm } from "./_components/pod-upload-form"
 import { StatusActions } from "./_components/status-actions"
@@ -58,6 +64,17 @@ export default async function DeliveryDetailPage({ params }: PageProps) {
           verifiedByDgk: { select: { name: true } },
         },
       },
+      invoices: {
+        select: {
+          id: true,
+          invoiceNumber: true,
+          type: true,
+          status: true,
+          totalIDR: true,
+          pdfUrl: true,
+        },
+        orderBy: { createdAt: "asc" },
+      },
     },
   })
   if (!deliveryOrder) notFound()
@@ -67,11 +84,25 @@ export default async function DeliveryDetailPage({ params }: PageProps) {
     !!session &&
     (session.user.role === UserRole.ADMIN ||
       session.user.role === UserRole.OPS_MANAGER)
+  const canGenerateInvoice =
+    !!session &&
+    (session.user.role === UserRole.ADMIN ||
+      session.user.role === UserRole.OPS_MANAGER ||
+      session.user.role === UserRole.FINANCE_ADMIN)
 
   const pod = deliveryOrder.proofOfDelivery
   const isDispatched = deliveryOrder.status === DeliveryOrderStatus.DISPATCHED
+  const isDelivered = deliveryOrder.status === DeliveryOrderStatus.DELIVERED
   const showUploadForm = isDispatched && !pod
   const showVerifyButton = isDispatched && pod && !pod.verifiedAt
+
+  const invoiceUnlocked = isDelivered && !!pod?.verifiedAt
+  const hasVendorInvoice = deliveryOrder.invoices.some(
+    (inv) => inv.type === InvoiceType.VENDOR_TO_DGK,
+  )
+  const hasCustomerInvoice = deliveryOrder.invoices.some(
+    (inv) => inv.type === InvoiceType.DGK_TO_CUSTOMER,
+  )
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -208,22 +239,71 @@ export default async function DeliveryDetailPage({ params }: PageProps) {
         <CardHeader>
           <CardTitle className="text-base">Invoicing</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
+        <CardContent className="space-y-4">
+          {invoiceUnlocked ? (
+            <>
+              <div className="flex flex-wrap items-start gap-3">
+                <GenerateInvoiceButton
+                  deliveryOrderId={deliveryOrder.id}
+                  type={InvoiceType.VENDOR_TO_DGK}
+                  label="Generate vendor invoice"
+                  canMutate={canGenerateInvoice}
+                  alreadyExists={hasVendorInvoice}
+                />
+                <GenerateInvoiceButton
+                  deliveryOrderId={deliveryOrder.id}
+                  type={InvoiceType.DGK_TO_CUSTOMER}
+                  label="Generate customer invoice"
+                  canMutate={canGenerateInvoice}
+                  alreadyExists={hasCustomerInvoice}
+                />
+              </div>
+              {deliveryOrder.invoices.length > 0 && (
+                <div className="space-y-2 border-t pt-4">
+                  {deliveryOrder.invoices.map((inv) => (
+                    <div
+                      key={inv.id}
+                      className="flex items-center justify-between gap-3 rounded border px-3 py-2 text-sm"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Link
+                          href={`/invoices/${inv.id}`}
+                          className="font-mono hover:underline"
+                        >
+                          {inv.invoiceNumber}
+                        </Link>
+                        <Badge variant="outline">
+                          {inv.type === InvoiceType.VENDOR_TO_DGK
+                            ? "Vendor"
+                            : "Customer"}
+                        </Badge>
+                        <StatusBadge status={inv.status} />
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="font-mono">
+                          {formatIDR(inv.totalIDR)}
+                        </span>
+                        {inv.pdfUrl && (
+                          <a
+                            href={inv.pdfUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sm underline"
+                          >
+                            Download PDF
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
             <p className="text-sm text-muted-foreground">
-              {deliveryOrder.status === DeliveryOrderStatus.DELIVERED
-                ? "Delivery verified. Invoice generation lands next."
-                : "Vendor invoice generation unlocks after POD is verified."}
+              Invoice generation unlocks after POD is verified.
             </p>
-            <Button
-              disabled
-              variant="outline"
-              size="sm"
-              title="Coming in Module 8"
-            >
-              Generate vendor invoice
-            </Button>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>

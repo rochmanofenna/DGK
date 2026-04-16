@@ -1,6 +1,10 @@
 import { z } from "zod"
 
-import { DeliveryCheckpoint, DeliveryOrderStatus } from "@/prisma/generated/enums"
+import {
+  DeliveryCheckpoint,
+  DeliveryOrderStatus,
+  InvoiceType,
+} from "@/prisma/generated/enums"
 
 // ─── File validation constants (used by client + server) ─────────────────────
 export const POD_MAX_FILES = 5
@@ -55,6 +59,13 @@ export const INITIAL_POD_UPLOAD_STATE: PodUploadState = { ok: false, error: null
 // POD upload receives FormData (Files + metadata together). The metadata
 // half is parsed with this schema; the Files are validated separately by
 // the action body using the constants above.
+// ─── Invoice generation (both VENDOR_TO_DGK and DGK_TO_CUSTOMER) ─────────────
+export const createInvoiceSchema = z.object({
+  deliveryOrderId: z.string().trim().min(1),
+  type: z.nativeEnum(InvoiceType),
+})
+export type CreateInvoiceValues = z.infer<typeof createInvoiceSchema>
+
 export const podMetadataSchema = z.object({
   deliveryOrderId: z.string().trim().min(1),
   deliveredAt: z.coerce.date(),
