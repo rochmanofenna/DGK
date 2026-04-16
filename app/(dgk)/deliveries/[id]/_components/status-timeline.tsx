@@ -92,7 +92,7 @@ export function StatusTimeline({
       {events.map((ev, i) => (
         <li key={`${ev.at.getTime()}-${i}`} className="relative">
           <span
-            className="absolute -left-[7px] top-1.5 size-3 rounded-full bg-primary ring-4 ring-background"
+            className="absolute -left-[30px] top-1.5 size-3 rounded-full bg-primary ring-4 ring-background"
             aria-hidden
           />
           <div className="flex items-baseline justify-between gap-4">

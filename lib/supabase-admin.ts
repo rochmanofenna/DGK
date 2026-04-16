@@ -30,5 +30,5 @@ export const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KE
   auth: { persistSession: false, autoRefreshToken: false },
 })
 
-export const POD_BUCKET = "dgk-erp"
+export const POD_BUCKET = "kampono_bucket"
 export const POD_FOLDER = "pod-photos"
