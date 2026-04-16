@@ -1,5 +1,5 @@
 import type { DefaultSession } from "next-auth"
-import type { UserRole } from "@/prisma/generated/client"
+import type { UserRole } from "@/prisma/generated/enums"
 
 /**
  * Module augmentations so session.user.role / id / organizationId are

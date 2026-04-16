@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 
 import { auth } from "@/auth"
 import { Button } from "@/components/ui/button"
-import { UserRole } from "@/prisma/generated/client"
+import { UserRole } from "@/prisma/generated/enums"
 
 import { signOutAction } from "./actions"
 
