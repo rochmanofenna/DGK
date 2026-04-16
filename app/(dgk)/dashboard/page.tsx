@@ -45,18 +45,24 @@ function Widget({ label, value, href, tone = "normal" }: WidgetProps) {
   return (
     <Link
       href={href}
-      className="block rounded-lg border bg-background p-4 transition-colors hover:bg-muted/40"
+      className="group/widget relative block overflow-hidden rounded-sm bg-card px-5 py-5 ring-1 ring-border/80 shadow-[0_1px_0_0_rgba(30,22,15,0.02)] transition-all hover:-translate-y-px hover:ring-foreground/25 hover:shadow-[0_2px_10px_-2px_rgba(30,22,15,0.06)]"
     >
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
         {label}
       </div>
       <div
-        className={`mt-2 text-2xl font-semibold ${
-          tone === "alert" ? "text-destructive" : ""
+        className={`mt-3 font-display text-[1.875rem] leading-none tracking-tight ${
+          tone === "alert" ? "text-destructive" : "text-foreground"
         }`}
       >
         {value}
       </div>
+      <span
+        aria-hidden
+        className="absolute right-4 top-5 text-muted-foreground/40 opacity-0 transition-opacity group-hover/widget:opacity-100"
+      >
+        →
+      </span>
     </Link>
   )
 }
@@ -170,10 +176,18 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
-          Welcome, {session?.user.name}. Here&apos;s the state of DGK today.
+      <div className="flex items-end justify-between gap-6 border-b border-border/60 pb-5">
+        <div>
+          <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            Operations overview
+          </p>
+          <h1 className="font-display text-4xl leading-none tracking-tight">
+            Dashboard
+          </h1>
+        </div>
+        <p className="hidden max-w-sm text-right text-[13px] text-muted-foreground sm:block">
+          Welcome, <span className="text-foreground">{session?.user.name}</span>.
+          Here&apos;s the state of DGK today.
         </p>
       </div>
 

@@ -32,12 +32,23 @@ export default async function DgkLayout({ children }: DgkLayoutProps) {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between border-b bg-background px-6 py-3">
-        <div className="font-semibold">DGK ERP</div>
-        <div className="flex items-center gap-4">
-          <div className="text-sm text-muted-foreground">
-            {session.user.name}{" "}
-            <span className="capitalize">· {roleLabel}</span>
+      <header className="flex items-center justify-between border-b border-border bg-background/80 px-6 py-3 backdrop-blur-sm">
+        <div className="flex items-baseline gap-3">
+          <span className="font-display text-xl leading-none tracking-tight">
+            DGK
+          </span>
+          <span className="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground md:inline">
+            Dinamika Global Korpora
+          </span>
+        </div>
+        <div className="flex items-center gap-5">
+          <div className="hidden text-right sm:block">
+            <div className="text-sm font-medium leading-tight">
+              {session.user.name}
+            </div>
+            <div className="text-[10px] uppercase tracking-[0.1em] leading-tight text-muted-foreground">
+              {roleLabel}
+            </div>
           </div>
           <form action={signOutAction}>
             <Button type="submit" variant="ghost" size="sm">
@@ -48,7 +59,7 @@ export default async function DgkLayout({ children }: DgkLayoutProps) {
       </header>
       <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 px-8 py-8">{children}</main>
       </div>
     </div>
   )
