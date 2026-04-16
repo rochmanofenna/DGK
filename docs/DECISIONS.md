@@ -22,6 +22,42 @@ upsert-by-email will refresh the stored hashes in place.
 
 ---
 
+## Pre-deploy placeholder replacement
+
+Every field currently tagged `[DEV PLACEHOLDER]` in `prisma/seed.ts` must be
+replaced with real Dylan-supplied values before DGK touches real data.
+Grep `[DEV PLACEHOLDER]` to find them; this list is the same set,
+grouped by entity for a demo-day / deploy-day punch list.
+
+**DGK Organization** (`seed_dgk_org`)
+- [ ] `address` — currently `Jl. Jenderal Sudirman No. 1, Jakarta Pusat 10220` → replace with real HQ address
+- [ ] `taxId` — currently `01.234.567.8-012.000` → replace with DGK's real NPWP
+- [ ] `contactPerson` — currently `"Dylan"` → replace with real point of contact name
+- [ ] `phone` — currently `+62 21 5555 0100` → replace with real number
+- [ ] `bankName` / `bankAccount` — currently `BCA` / `012 3456789` → replace with the real account DGK uses for customer payments (shows on every customer invoice PDF)
+
+**Transcoll Organization** (`seed_transcoll_org`)
+- [ ] `address` — currently `Sentul / Cileungsi / Narogong area, West Java` → SPEC §11 didn't provide a street address; request from Transcoll
+- [ ] `taxId` — currently `02.345.678.9-023.000` fabricated → request NPWP from Transcoll
+- (other fields come from SPEC §11 verbatim; no change needed)
+
+**Customer Organizations** (Berkah Pangan, Sumber Rasa, Arumi Boga)
+- [ ] All three are fictional seed data. Replace with the real customer roster Dylan provides. Each needs: `name`, real NPWP (`taxId`), real `address`, real `contactPerson`, real `phone`, and a real business email.
+- [ ] `creditTermsDays` — currently `30 / 30 / 45` (guesses). Confirm per customer with Dylan.
+
+**Users**
+- [ ] `ops@dgk.dev` / `ops-dev-pw-change-me` — rotate password, optionally change email to a real DGK staff address
+- [ ] `finance@dgk.dev` / `finance-dev-pw-change-me` — same rotation
+- [ ] User names `Rina Pratama` and `Bayu Santoso` are placeholders → replace with real names
+- [ ] Phone numbers `+62 811 1000 001/002` are placeholders
+
+**Not placeholders — rules that carry into production**
+- Rate card (Transcoll): prices + extra-point/overnight fees come from the real rate card PDF (SPEC §11). Don't replace unless Transcoll issues a new card.
+- `paymentTermsDays: 14` for Transcoll — per contract.
+- `PPN_FREIGHT_RATE = 0.011` in `lib/tax.ts` — Indonesian tax rule, not a placeholder.
+
+---
+
 ## 2026-04-16 — MVP scaffold
 
 - **Next.js 16 / React 19 / Tailwind 4 / Prisma 7 (keeping `create-next-app` latest, not spec-era majors).** Migration pain later > training-data gap now. `AGENTS.md` + CLAUDE.md in repo flag that Next 16 has breaking changes; mitigation is to read `node_modules/next/dist/docs/` before writing any Next-specific file.
@@ -114,6 +150,16 @@ upsert-by-email will refresh the stored hashes in place.
 - **Cascade flip: Invoice → PAID, then Order → PAID (terminal) when BOTH invoice types hit PAID.** Same transaction as the Payment insert. After the payment lands, aggregate confirmed payments; if ≥ invoice total, flip invoice. After invoice flip, check whether both `VENDOR_TO_DGK` and `DGK_TO_CUSTOMER` are PAID for this DO's parent Order; if yes, flip Order. `TODO(phase-2):` multi-DO orders need "all DOs have both invoices PAID", not just this DO's.
 - **No `/payments/[id]` detail page.** Payment details are simple enough to render inline on the invoice detail page's prior-payments list + the `/payments` list. Can add later if audit trail needs a dedicated surface; the seed is not there yet.
 - **Progress bar UX** on invoice detail makes partial payments visible without needing a text explanation. Line reads `Paid so far: {formatted} / {total} · {pct}%` with a thin `<div>` progress fill underneath.
+
+## 2026-04-16 — Module 10: dashboard + MVP complete
+
+- **Dashboard is six widgets + two tables, all read-only.** No new schema, no new primitives — every number is derived from existing data. Widgets: Active orders · Active deliveries · Outstanding invoices · AR outstanding · AP outstanding · Overdue invoices (red if > 0). Below the grid: Active Deliveries table (top 10, newest first), Overdue Invoices table (all invoices past due date + still DRAFT/SENT, oldest first). All widgets link to filtered list views.
+- **AR/AP computed in app code, not SQL.** For each outstanding invoice, subtract sum-of-confirmed-payments from `totalIDR`, then sum across. Cleaner than a raw SQL aggregate under Prisma; at DGK's volume (<100 invoices) performance is a non-concern. If we ever exceed ~10k invoices we switch to a materialized view or a SQL window function.
+- **All dashboard queries run under `Promise.all`** — eight concurrent reads on page load. First paint feels instant at MVP volumes.
+- **`Mark as sent` button visibility tightened.** Previously the button was rendered whenever `invoice.status === DRAFT` regardless of role; now it also checks `canRecordPayment` (same FINANCE/ADMIN gate that controls the payment form). Consistent with the Cancel-order / Assign-vendor patterns elsewhere in the app. Ops users no longer see a button that would reject their click.
+- **`npm run reset-demo`** wipes operational rows (Payment, Invoice, POD, DeliveryChecklist, DeliveryOrder, Order) in FK-safe order and leaves the seed (orgs, vendor, customers, users, rate card) intact. Purpose: between Dylan demos, reset to "blank operational state" in a few seconds without a full `prisma migrate reset`. Does NOT clean Supabase Storage — orphan POD photos, invoice PDFs, and payment proofs persist and will be addressed by the phase-2 Storage GC job.
+- **Pre-deploy placeholder replacement checklist** added at the top of this file. Every `[DEV PLACEHOLDER]` in `prisma/seed.ts` is cross-listed here with grouping by entity, so the pre-demo / pre-production sweep is a checkbox exercise rather than a grep session.
+- **MVP is complete.** End-to-end flow verified in browser: Order creation → Vendor assignment (rate-card lookup, frozen price) → Status transitions (PENDING → ACKNOWLEDGED → DISPATCHED) → Checklist → POD upload → POD verification (DO + Order → DELIVERED) → Vendor invoice PDF → Customer invoice PDF (Order → INVOICED) → Partial + full payment recording → Order → PAID. Role gates (Ops vs Finance) verified. Indonesian tax rules (PPN 1.1%) verified on-pixel. Status badges, PDF rendering, sidebar nav, dashboard widgets, and overdue tracking all functional.
 
 - **Next 16 renamed `middleware.ts` → `proxy.ts`** (per `node_modules/next/dist/docs/01-app/02-guides/upgrading/version-16.md`). Proxy is **Node runtime only** in 16.x; `edge` isn't supported and docs promise a future minor will reopen it. File and function are both called `proxy`; config flags followed (`skipMiddlewareUrlNormalize` → `skipProxyUrlNormalize`). Discovered while reading the Next 16 docs per the AGENTS.md warning — exactly the payoff that warning was pointing at.
 - **Kept the `auth.config.ts` / `auth.ts` edge-safe split even though proxy is Node today.** No Prisma or bcryptjs in `auth.config.ts` means if edge returns for proxy in a later Next minor (or if we add a separate edge route that needs auth), the split is already in place. Cost is zero.

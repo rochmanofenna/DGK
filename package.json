@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "reset-demo": "tsx prisma/reset-demo.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

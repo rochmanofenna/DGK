@@ -81,7 +81,7 @@ export default async function InvoiceDetailPage({ params }: PageProps) {
           </p>
         </div>
         <div className="flex gap-2">
-          {invoice.status === InvoiceStatus.DRAFT && (
+          {invoice.status === InvoiceStatus.DRAFT && canRecordPayment && (
             <MarkSentButton invoiceId={invoice.id} />
           )}
           {invoice.pdfUrl && (
