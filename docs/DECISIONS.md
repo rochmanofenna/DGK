@@ -7,6 +7,21 @@ replace it (cite the old one's date).
 
 ---
 
+## Dev test accounts
+
+⚠ **Dev only. Rotate before any real user or demo touches this system.**
+
+| Email              | Password                    | Role            |
+|--------------------|-----------------------------|-----------------|
+| `ops@dgk.dev`      | `ops-dev-pw-change-me`      | `OPS_MANAGER`   |
+| `finance@dgk.dev`  | `finance-dev-pw-change-me`  | `FINANCE_ADMIN` |
+
+Seeded by `prisma/seed.ts`, bcrypt-hashed at seed time. To rotate: edit the
+`PASSWORDS` constant in the seed file and re-run `npx prisma db seed` — the
+upsert-by-email will refresh the stored hashes in place.
+
+---
+
 ## 2026-04-16 — MVP scaffold
 
 - **Next.js 16 / React 19 / Tailwind 4 / Prisma 7 (keeping `create-next-app` latest, not spec-era majors).** Migration pain later > training-data gap now. `AGENTS.md` + CLAUDE.md in repo flag that Next 16 has breaking changes; mitigation is to read `node_modules/next/dist/docs/` before writing any Next-specific file.
