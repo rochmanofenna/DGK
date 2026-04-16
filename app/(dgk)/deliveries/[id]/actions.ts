@@ -28,6 +28,7 @@ import {
   updateStatusSchema,
   type LogChecklistValues,
   type PodMime,
+  type PodUploadState,
   type UpdateStatusValues,
 } from "./schemas"
 
@@ -113,13 +114,6 @@ export async function logChecklistEntryAction(
 }
 
 // ─── POD upload ──────────────────────────────────────────────────────────────
-
-export interface PodUploadState {
-  ok: boolean
-  error: string | null
-}
-
-export const INITIAL_POD_UPLOAD_STATE: PodUploadState = { ok: false, error: null }
 
 export async function uploadPodAction(
   _prev: PodUploadState,

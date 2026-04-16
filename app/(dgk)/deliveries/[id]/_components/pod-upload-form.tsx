@@ -7,11 +7,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 
+import { uploadPodAction } from "../actions"
 import {
   INITIAL_POD_UPLOAD_STATE,
-  uploadPodAction,
-} from "../actions"
-import {
   POD_ALLOWED_MIME,
   POD_MAX_BYTES,
   POD_MAX_FILES,

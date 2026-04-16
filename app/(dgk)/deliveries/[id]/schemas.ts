@@ -41,6 +41,17 @@ export const logChecklistSchema = z.object({
 })
 export type LogChecklistValues = z.infer<typeof logChecklistSchema>
 
+// ─── POD upload state (used by pod-upload-form's useActionState) ────────────
+// Has to live here rather than in actions.ts because Next 16 strictly forbids
+// "use server" files from exporting anything other than async functions;
+// constants blow up at runtime with "A 'use server' file can only export
+// async functions, found object." (types are fine — they're erased).
+export interface PodUploadState {
+  ok: boolean
+  error: string | null
+}
+export const INITIAL_POD_UPLOAD_STATE: PodUploadState = { ok: false, error: null }
+
 // POD upload receives FormData (Files + metadata together). The metadata
 // half is parsed with this schema; the Files are validated separately by
 // the action body using the constants above.
