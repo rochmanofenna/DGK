@@ -7,6 +7,8 @@ export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
+    // Prisma 7 moved the seed command here from package.json's `prisma.seed`.
+    seed: "tsx prisma/seed.ts",
   },
   datasource: {
     // Migrations + introspection use DATABASE_URL. In MVP this points at
