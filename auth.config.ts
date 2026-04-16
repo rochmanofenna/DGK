@@ -22,9 +22,11 @@ export const authConfig = {
       }
       return token
     },
+    // TODO(v5-stable): retry without the casts below — the module
+    // augmentation in next-auth.d.ts should flow through callback
+    // inference on stable v5. Under beta.31 it doesn't; token.id / .role /
+    // .organizationId come through as `unknown` despite the augmentation.
     session({ session, token }) {
-      // The JWT augmentation doesn't always flow through v5 beta's callback
-      // inference, so explicit casts keep this robust across beta bumps.
       if (token) {
         session.user.id = token.id as string
         session.user.role = token.role as typeof session.user.role
