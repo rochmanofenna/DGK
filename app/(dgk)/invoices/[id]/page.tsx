@@ -1,17 +1,23 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 
+import { auth } from "@/auth"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatIDR } from "@/lib/currency"
 import { db } from "@/lib/db"
 import { formatWIBDate, formatWIBDateTime } from "@/lib/time"
-import { InvoiceStatus } from "@/prisma/generated/enums"
+import {
+  InvoiceStatus,
+  PaymentStatus,
+  UserRole,
+} from "@/prisma/generated/enums"
 
 import { StatusBadge } from "../../orders/_components/status-badge"
 
 import { MarkSentButton } from "./mark-sent-button"
+import { PaymentForm } from "./payment-form"
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -28,12 +34,35 @@ export default async function InvoiceDetailPage({ params }: PageProps) {
       deliveryOrder: {
         include: { order: { select: { orderNumber: true } } },
       },
+      payments: {
+        include: { recordedBy: { select: { name: true } } },
+        orderBy: { paidAt: "desc" },
+      },
     },
   })
   if (!invoice) notFound()
 
   const typeLabel =
     invoice.type === "VENDOR_TO_DGK" ? "Vendor → DGK" : "DGK → Customer"
+
+  const session = await auth()
+  const canRecordPayment =
+    !!session &&
+    (session.user.role === UserRole.ADMIN ||
+      session.user.role === UserRole.FINANCE_ADMIN)
+
+  const totalPaid = invoice.payments
+    .filter((p) => p.status === PaymentStatus.CONFIRMED)
+    .reduce((sum, p) => sum + p.amountIDR, 0)
+  const remaining = Math.max(0, invoice.totalIDR - totalPaid)
+  const paidPct =
+    invoice.totalIDR > 0
+      ? Math.min(100, Math.round((totalPaid / invoice.totalIDR) * 100))
+      : 0
+
+  const isFullyPaid = invoice.status === InvoiceStatus.PAID
+  const isCancelled = invoice.status === InvoiceStatus.CANCELLED
+  const canAcceptPayment = !isFullyPaid && !isCancelled
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -164,20 +193,93 @@ export default async function InvoiceDetailPage({ params }: PageProps) {
         <CardHeader>
           <CardTitle className="text-base">Payments</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              Payment recording lands in Module 9.
-            </p>
-            <Button
-              disabled
-              variant="outline"
-              size="sm"
-              title="Coming in Module 9"
-            >
-              Record payment
-            </Button>
+        <CardContent className="space-y-4">
+          {/* Progress line — makes partial payments obvious at a glance. */}
+          <div className="space-y-1">
+            <div className="flex items-baseline justify-between text-sm">
+              <span className="text-muted-foreground">Paid so far</span>
+              <span className="font-mono">
+                {formatIDR(totalPaid)} / {formatIDR(invoice.totalIDR)}
+                {" · "}
+                {paidPct}%
+              </span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full bg-primary transition-all"
+                style={{ width: `${paidPct}%` }}
+                aria-hidden
+              />
+            </div>
           </div>
+
+          {isFullyPaid && (
+            <p className="text-sm text-emerald-700">
+              Fully paid. No further payments accepted.
+            </p>
+          )}
+          {isCancelled && (
+            <p className="text-sm text-muted-foreground">
+              This invoice is cancelled — no payments can be recorded.
+            </p>
+          )}
+
+          {canAcceptPayment && (
+            <div className="rounded-md border bg-background p-4">
+              <h3 className="mb-3 text-sm font-medium">Record payment</h3>
+              <PaymentForm
+                invoiceId={invoice.id}
+                remainingIDR={remaining}
+                canMutate={canRecordPayment}
+              />
+            </div>
+          )}
+
+          {invoice.payments.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                Prior payments
+              </h3>
+              <div className="space-y-2">
+                {invoice.payments.map((p) => (
+                  <div
+                    key={p.id}
+                    className="rounded border px-3 py-2 text-sm"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-mono">{formatIDR(p.amountIDR)}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatWIBDateTime(p.paidAt)}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      <span>
+                        {p.paymentMethod === "BANK_TRANSFER"
+                          ? "Bank transfer"
+                          : "QRIS"}
+                      </span>
+                      {p.referenceNumber && (
+                        <span className="font-mono">
+                          Ref: {p.referenceNumber}
+                        </span>
+                      )}
+                      <span>Recorded by {p.recordedBy.name}</span>
+                      {p.proofUrl && (
+                        <a
+                          href={p.proofUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline"
+                        >
+                          View proof
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

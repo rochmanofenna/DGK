@@ -33,3 +33,4 @@ export const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KE
 export const POD_BUCKET = "kampono_bucket"
 export const POD_FOLDER = "pod-photos"
 export const INVOICE_FOLDER = "invoices"
+export const PAYMENT_PROOF_FOLDER = "payment-proofs"
