@@ -23,3 +23,22 @@ replace it (cite the old one's date).
 - **`TruckType` enum hardcoded to Transcoll's two tiers (`CDEL_2T`, `TRONTON_20T`).** Extensible per SPEC §4; when vendor #2 adds a new truck class, we add an enum value and migrate.
 - **Invoice numbering is internal-only for MVP; real Faktur Pajak IDs deferred.** SPEC open question #4 (DJP-regulated format) is unresolved. Simple sequential numbering until Dylan confirms the format.
 - **IDs: `String @id @default(cuid())`.** URL-friendly, sortable, non-sequential. Standard Prisma convention.
+
+## 2026-04-16 — schema review (pre-migration)
+
+- **`User.organizationId` is required; DGK Organization row seeded from day one.** Supersedes the earlier "nullable for MVP, skip the implicit DGK org" schema TODO. That was false-economy tech debt — seeding one row in the seed script removes both a nullability check across every auth query and a future non-null migration.
+- **Extra-point and overnight fees live on `RateCard`, not `RateCardEntry`.** Re-reading the Transcoll PDF (SPEC §11 Notes): these are card-level policy (and only apply to CDEL trucks), not per-route. Putting them on entries would duplicate the same Rp 200,000 / Rp 300,000 across every row. When a future vendor has per-route variants we move them down.
+- **`Customer.creditTermsDays` is required with no default.** 30 days was a guess. **Open question for Dylan:** what credit terms does DGK actually extend to customers — flat across all, per-customer agreement, or tied to the invoice?
+- **Internal numbering: `ORD-YYYY-NNNNN`, `DO-YYYY-NNNNN`, `INV-YYYY-NNNNN` with per-type yearly counters.** Simple references for MVP. Faktur Pajak DJP-regulated numbers (SPEC open question #4) are deferred until Dylan confirms the format — when they arrive, they'll coexist with the internal `invoiceNumber`. `lib/numbering.ts` helper gets added when we build the first minting site (Order creation).
+- **All models get `createdAt` / `updatedAt`.** Consistent auditability even on lookup tables — "when was this rate card entry last edited?" is a real question in pricing disputes, and the column is cheap.
+- **Recency indexes: `@@index([createdAt])` on Order and DeliveryOrder.** Dashboards always want recency-ordered queries; adding after real data is annoying.
+
+## 2026-04-16 — Supabase wiring
+
+- **Database hosted on Supabase (Singapore / `ap-southeast-1`).** Project ref `omdyrdezhgclhntnrgps`.
+- **Pooler mode: Session (port 5432) for MVP, both `DATABASE_URL` and `DIRECT_URL`.** Session pooler is IPv4-compatible and safe for runtime *and* migrations. At Vercel deploy time, swap runtime `DATABASE_URL` to the Transaction pooler (port 6543) for better serverless cold-start behavior; keep `DIRECT_URL` on Session for migrations.
+- **`DIRECT_URL` lives in `.env` but not in `prisma.config.ts` (Prisma 7 change).** Prisma 7 dropped the `directUrl` field from the config's `datasource` block — the migration/runtime split is now expressed by passing a driver adapter to the `PrismaClient` constructor, not in the CLI config. For MVP both URLs are identical (Session pooler, port 5432) and only `DATABASE_URL` is wired to Prisma. At Vercel deploy we'll add a driver adapter pointing at the Transaction pooler (port 6543) for runtime and keep the Session pooler for migrations.
+- **Publishable-key-only client pattern.** The app uses `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` for all Supabase client calls; no service role key is wired. Admin operations (bucket creation, RLS policies) are done via the Supabase dashboard, not application code.
+- **Supabase is Storage-only; auth stays on NextAuth v5.** `lib/supabase.ts` wires the `@supabase/ssr` cookie plumbing regardless so adopting Supabase Auth later would be a small change rather than a rewrite.
+- **Storage bucket `dgk-erp` is created manually in the Supabase dashboard** (no service role key means we can't provision it programmatically). Single bucket with folder namespaces: `pod/<deliveryOrderId>/<photo>`, `invoice/<invoiceId>.pdf`, `permission/<deliveryOrderId>.pdf`.
+- **Number generation format: `ORD-YYYY-NNNNN`, `DO-YYYY-NNNNN`, `INV-YYYY-NNNNN`** per-type yearly counters. Stubbed in `lib/numbering.ts`; real DB-backed implementation arrives with the first minting site (Order creation). Faktur Pajak numbers (SPEC open question #4) coexist once DJP format is confirmed.

@@ -9,6 +9,13 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
+    // Migrations + introspection use DATABASE_URL. In MVP this points at
+    // Supabase's Session pooler (port 5432). At Vercel deploy we'll swap
+    // the runtime connection to a Prisma driver adapter targeting the
+    // Transaction pooler (port 6543) and leave migrations on Session —
+    // Prisma 7 removed the schema-level `directUrl` field, so the
+    // migration/runtime split now lives in the PrismaClient constructor.
+    // See docs/DECISIONS.md.
     url: process.env["DATABASE_URL"],
   },
 });

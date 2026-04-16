@@ -1,13 +1,390 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// DGK ERP schema. Models reflect SPEC §4 with corrections from docs/DECISIONS.md.
+//
+// Source-of-truth rules (also in docs/DECISIONS.md):
+//   - DeliveryOrder.status is authoritative. Order.status is kept in sync
+//     by application logic after every DO status change. TODO(phase-2):
+//     migrate to a computed getter once multi-DO-per-order is real.
+//   - Money: all *IDR fields are whole rupiah (Int). Formatted at display
+//     time via Intl.NumberFormat('id-ID'); never stored as float.
+//   - PPN on freight = 1.1% effective (see lib/tax.ts).
 
 generator client {
   provider = "prisma-client"
   output   = "../prisma/generated"
 }
 
+// In Prisma 7 the connection URL lives in prisma.config.ts, not here.
 datasource db {
   provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN            // DGK super-admin / future CTO
+  OPS_MANAGER      // DGK ops
+  FINANCE_ADMIN    // DGK finance
+  VENDOR_USER      // Phase 2: vendor portal
+  CUSTOMER_USER    // Phase 2: customer portal
+}
+
+enum OrganizationType {
+  DGK
+  VENDOR
+  CUSTOMER
+}
+
+// Transcoll's current route set. When vendor #2 arrives we either add
+// enum values or migrate to a Region lookup table — see DECISIONS.md.
+enum Region {
+  SENTUL_CILEUNGSI_NAROGONG   // Transcoll origin zone
+  JAKARTA
+  BEKASI
+  DEPOK
+  BOGOR
+  TANGERANG
+  BANDUNG
+  SEMARANG
+  YOGYAKARTA
+  PALEMBANG
+  JAMBI
+}
+
+enum TruckType {
+  CDEL_2T          // CDE-L chilled/frozen, 2-ton payload
+  TRONTON_20T      // Tronton chilled/frozen, 20-ton payload
+}
+
+enum OrderStatus {
+  DRAFT
+  SUBMITTED
+  ASSIGNED
+  IN_TRANSIT
+  DELIVERED
+  INVOICED
+  PAID
+  CANCELLED
+}
+
+enum DeliveryOrderStatus {
+  PENDING
+  ACKNOWLEDGED
+  DISPATCHED
+  DELIVERED
+  CANCELLED
+}
+
+enum DeliveryCheckpoint {
+  PICKUP
+  IN_TRANSIT
+  ARRIVED
+  UNLOADING
+  COMPLETED
+}
+
+enum InvoiceType {
+  VENDOR_TO_DGK
+  DGK_TO_CUSTOMER
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  QRIS
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+}
+
+// ─── Identity & organizations ─────────────────────────────────────────────
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  passwordHash   String
+  role           UserRole
+  name           String
+  phone          String?
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  createdOrders      Order[]             @relation("OrderCreatedBy")
+  assignedDeliveries DeliveryOrder[]     @relation("DeliveryAssignedBy")
+  verifiedChecklists DeliveryChecklist[] @relation("ChecklistVerifiedBy")
+  uploadedPODs       ProofOfDelivery[]   @relation("PODUploadedBy")
+  verifiedPODs       ProofOfDelivery[]   @relation("PODVerifiedBy")
+  recordedPayments   Payment[]           @relation("PaymentRecordedBy")
+
+  @@index([organizationId])
+  @@index([role])
+}
+
+model Organization {
+  id            String           @id @default(cuid())
+  type          OrganizationType
+  name          String
+  address       String
+  taxId         String?          // NPWP — Indonesian tax ID
+  contactPerson String?
+  phone         String?
+  email         String?
+  bankName      String?
+  bankAccount   String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  users         User[]
+  vendor        Vendor?
+  customer      Customer?
+  invoicesFrom  Invoice[] @relation("InvoiceFromOrg")
+  invoicesTo    Invoice[] @relation("InvoiceToOrg")
+
+  @@index([type])
+}
+
+model Vendor {
+  id               String   @id @default(cuid())
+  organizationId   String   @unique
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  paymentTermsDays Int      @default(14)  // Transcoll: net-14
+  isActive         Boolean  @default(true)
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  rateCards        RateCard[]
+  deliveryOrders   DeliveryOrder[]
+}
+
+model Customer {
+  id                     String   @id @default(cuid())
+  organizationId         String   @unique
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  agreedPricingReference String?  // free-text pointer to the agreement doc
+  creditTermsDays        Int      // required, no default — pending Dylan's answer
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  orders                 Order[]
+}
+
+// ─── Rate card ────────────────────────────────────────────────────────────
+
+model RateCard {
+  id                   String    @id @default(cuid())
+  vendorId             String
+  vendor               Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  effectiveDate        DateTime
+  expiryDate           DateTime?
+  notes                String?   // e.g. "Prices exclude PPN 1.1%, insurance, TKBM"
+
+  // Card-level policy (Transcoll defaults, only actually applied to CDEL
+  // in current contract — see SPEC §11 Notes). Future vendors with
+  // per-route variants would need these moved down to RateCardEntry.
+  extraPointChargeIDR  Int       @default(200000)  // Rp 200,000 per extra delivery point, one-way
+  overnightChargeIDR   Int       @default(300000)  // Rp 300,000 overnight if arrival <15:00 WIB
+
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  entries              RateCardEntry[]
+
+  @@index([vendorId])
+  @@index([effectiveDate])
+}
+
+model RateCardEntry {
+  id                String    @id @default(cuid())
+  rateCardId        String
+  rateCard          RateCard  @relation(fields: [rateCardId], references: [id], onDelete: Cascade)
+  originRegion      Region
+  destinationRegion Region
+  truckType         TruckType
+  priceIDR          Int
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([rateCardId, originRegion, destinationRegion, truckType])
+  @@index([rateCardId])
+}
+
+// ─── Order lifecycle ──────────────────────────────────────────────────────
+
+model Order {
+  id                  String      @id @default(cuid())
+  orderNumber         String      @unique
+  customerId          String
+  customer            Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  createdById         String
+  createdBy           User        @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  // Synced from DeliveryOrder.status by application logic; DO is source of
+  // truth. If you find yourself reading Order.status, confirm it's fresh
+  // (updated in the same transaction as the DO status change).
+  status              OrderStatus @default(SUBMITTED)
+
+  pickupDate          DateTime    // date-only semantically; stored as timestamp
+  packingList         Json        // { items: [{ description, quantity, unit, weightKg? }] }
+  manifestDescription String
+  requiredTruckType   TruckType
+  originRegion        Region
+  destinationRegion   Region
+  originAddress       String
+  destinationAddress  String
+
+  // Manual input at order creation for MVP — pending SPEC open question #1
+  // (flat rate vs vendor cost + %). See DECISIONS.md.
+  customerPriceIDR    Int?
+
+  notes               String?
+
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  deliveryOrders      DeliveryOrder[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([pickupDate])
+  @@index([createdAt])
+}
+
+model DeliveryOrder {
+  id                    String              @id @default(cuid())
+  doNumber              String              @unique
+  orderId               String
+  order                 Order               @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  vendorId              String
+  vendor                Vendor              @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  assignedById          String
+  assignedBy            User                @relation("DeliveryAssignedBy", fields: [assignedById], references: [id], onDelete: Restrict)
+
+  // Copied from the matching RateCardEntry at assignment time and frozen
+  // here, so later rate card edits don't mutate historical DOs.
+  vendorPriceIDR        Int
+
+  status                DeliveryOrderStatus @default(PENDING)
+  permissionDocumentUrl String?
+  dispatchedAt          DateTime?
+  deliveredAt           DateTime?
+
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  checklist             DeliveryChecklist[]
+  proofOfDelivery       ProofOfDelivery?
+  invoices              Invoice[]
+
+  @@index([orderId])
+  @@index([vendorId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model DeliveryChecklist {
+  id              String             @id @default(cuid())
+  deliveryOrderId String
+  deliveryOrder   DeliveryOrder      @relation(fields: [deliveryOrderId], references: [id], onDelete: Cascade)
+  checkpoint      DeliveryCheckpoint
+  timestamp       DateTime           @default(now())
+  notes           String?
+  photoUrl        String?
+  verifiedById    String?
+  verifiedBy      User?              @relation("ChecklistVerifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([deliveryOrderId])
+  @@index([checkpoint])
+}
+
+model ProofOfDelivery {
+  id                   String        @id @default(cuid())
+  deliveryOrderId      String        @unique
+  deliveryOrder        DeliveryOrder @relation(fields: [deliveryOrderId], references: [id], onDelete: Cascade)
+  uploadedById         String
+  uploadedBy           User          @relation("PODUploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)
+  deliveredAt          DateTime
+  receiverName         String
+  receiverSignatureUrl String?
+  photos               String[]      // Postgres text[] — array of Supabase Storage URLs
+  notes                String?
+  verifiedByDgkId      String?
+  verifiedByDgk        User?         @relation("PODVerifiedBy", fields: [verifiedByDgkId], references: [id], onDelete: SetNull)
+  verifiedAt           DateTime?
+
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+}
+
+// ─── Finance ──────────────────────────────────────────────────────────────
+
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique
+  type            InvoiceType
+  fromOrgId       String
+  fromOrg         Organization  @relation("InvoiceFromOrg", fields: [fromOrgId], references: [id], onDelete: Restrict)
+  toOrgId         String
+  toOrg           Organization  @relation("InvoiceToOrg", fields: [toOrgId], references: [id], onDelete: Restrict)
+  deliveryOrderId String
+  deliveryOrder   DeliveryOrder @relation(fields: [deliveryOrderId], references: [id], onDelete: Restrict)
+
+  issueDate       DateTime      @default(now())
+  dueDate         DateTime
+  subtotalIDR     Int
+  taxIDR          Int           // PPN 1.1% on freight — see lib/tax.ts
+  totalIDR        Int           // subtotal + tax
+  status          InvoiceStatus @default(DRAFT)
+  pdfUrl          String?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  payments        Payment[]
+
+  @@index([type])
+  @@index([status])
+  @@index([fromOrgId])
+  @@index([toOrgId])
+  @@index([deliveryOrderId])
+  @@index([dueDate])
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  invoiceId       String
+  invoice         Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  amountIDR       Int
+  paymentMethod   PaymentMethod
+  referenceNumber String?       // bank transfer reference or QRIS trx id
+  paidAt          DateTime
+  recordedById    String
+  recordedBy      User          @relation("PaymentRecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
+  proofUrl        String?
+  status          PaymentStatus @default(PENDING)
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([invoiceId])
+  @@index([status])
+  @@index([paidAt])
 }
