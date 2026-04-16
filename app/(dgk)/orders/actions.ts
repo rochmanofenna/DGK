@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
-import { auth } from "@/auth"
+import { requireRole } from "@/lib/auth-helpers"
 import { db } from "@/lib/db"
 import { nextDONumber, nextOrderNumber } from "@/lib/numbering"
 import { OrderStatus, UserRole } from "@/prisma/generated/enums"
@@ -50,12 +50,9 @@ export async function createOrderAction(
   }
   const data = parsed.data
 
-  // Auth + role gate.
-  const session = await auth()
-  if (!session) return { ok: false, error: "Not signed in" }
-  if (!ORDER_CREATE_ROLES.includes(session.user.role)) {
-    return { ok: false, error: "Your role can't create orders" }
-  }
+  const gate = await requireRole(ORDER_CREATE_ROLES, "Your role can't create orders")
+  if (!gate.ok) return gate
+  const { session } = gate
 
   // Business rules the schema already expresses but the server re-checks
   // so a raw action call can't bypass the zod refine.
@@ -112,11 +109,8 @@ export async function createOrderAction(
 export async function cancelOrderAction(
   orderId: string,
 ): Promise<ActionResult> {
-  const session = await auth()
-  if (!session) return { ok: false, error: "Not signed in" }
-  if (!ORDER_CANCEL_ROLES.includes(session.user.role)) {
-    return { ok: false, error: "Your role can't cancel orders" }
-  }
+  const gate = await requireRole(ORDER_CANCEL_ROLES, "Your role can't cancel orders")
+  if (!gate.ok) return gate
 
   const order = await db.order.findUnique({
     where: { id: orderId },
@@ -158,11 +152,9 @@ export async function createDeliveryOrderAction(
   }
   const { orderId, rateCardEntryId } = parsed.data
 
-  const session = await auth()
-  if (!session) return { ok: false, error: "Not signed in" }
-  if (!ASSIGN_VENDOR_ROLES.includes(session.user.role)) {
-    return { ok: false, error: "Your role can't assign vendors" }
-  }
+  const gate = await requireRole(ASSIGN_VENDOR_ROLES, "Your role can't assign vendors")
+  if (!gate.ok) return gate
+  const { session } = gate
 
   // Re-load + re-validate server-side. The dialog passed an entry ID; we
   // verify it still covers this order's route and the rate card is still
