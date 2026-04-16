@@ -35,3 +35,9 @@ export const orderFormSchema = z
 
 export type OrderFormValues = z.infer<typeof orderFormSchema>
 export type PackingItem = z.infer<typeof packingItemSchema>
+
+export const assignVendorSchema = z.object({
+  orderId: z.string().trim().min(1),
+  rateCardEntryId: z.string().trim().min(1),
+})
+export type AssignVendorValues = z.infer<typeof assignVendorSchema>

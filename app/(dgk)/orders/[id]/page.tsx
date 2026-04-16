@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 
+import { auth } from "@/auth"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,11 +15,13 @@ import {
 } from "@/components/ui/table"
 import { formatIDR } from "@/lib/currency"
 import { db } from "@/lib/db"
+import { findVendorCandidatesForOrder } from "@/lib/rate-cards"
 import { formatWIBDate, formatWIBDateTime } from "@/lib/time"
-import { OrderStatus, type Region } from "@/prisma/generated/enums"
+import { OrderStatus, UserRole, type Region } from "@/prisma/generated/enums"
 
 import { StatusBadge } from "../_components/status-badge"
 
+import { AssignVendorDialog } from "./assign-vendor-dialog"
 import { CancelOrderButton } from "./cancel-order-button"
 
 interface OrderDetailPageProps {
@@ -63,6 +66,24 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
   const items = packing?.items ?? []
 
   const cancellable = order.status === OrderStatus.SUBMITTED
+  const assignable =
+    order.status === OrderStatus.SUBMITTED && order.deliveryOrders.length === 0
+
+  const session = await auth()
+  const canAssign =
+    !!session &&
+    (session.user.role === UserRole.ADMIN ||
+      session.user.role === UserRole.OPS_MANAGER)
+
+  // Only query rate-card candidates when we're actually going to offer
+  // assignment — no point hitting the DB for ASSIGNED / DELIVERED / etc.
+  const vendorCandidates = assignable
+    ? await findVendorCandidatesForOrder({
+        originRegion: order.originRegion,
+        destinationRegion: order.destinationRegion,
+        requiredTruckType: order.requiredTruckType,
+      })
+    : []
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -197,14 +218,20 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
               <p className="text-sm text-muted-foreground">
                 No vendor assigned yet.
               </p>
-              <Button
-                disabled
-                variant="outline"
-                size="sm"
-                title="Available in Module 6"
-              >
-                Assign vendor
-              </Button>
+              {assignable && (
+                <AssignVendorDialog
+                  orderId={order.id}
+                  routeLabel={`${REGION_LABELS[order.originRegion]} → ${REGION_LABELS[order.destinationRegion]}`}
+                  truckLabel={
+                    order.requiredTruckType === "CDEL_2T"
+                      ? "CDEL 2-ton"
+                      : "Tronton 20-ton"
+                  }
+                  candidates={vendorCandidates}
+                  disabled={!canAssign}
+                  disabledReason="Ops Manager role required"
+                />
+              )}
             </div>
           ) : (
             <div className="space-y-2">

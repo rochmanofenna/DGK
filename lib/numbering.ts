@@ -32,10 +32,16 @@ export async function nextOrderNumber(): Promise<string> {
   return `${prefix}${pad(lastN + 1)}`
 }
 
-// TODO(module-6): replace with a db-backed impl analogous to nextOrderNumber
-// when DO creation is wired in the vendor-assignment module.
-export function nextDONumber(): string {
-  return `DO-${year()}-${pad(1)}`
+export async function nextDONumber(): Promise<string> {
+  const y = year()
+  const prefix = `DO-${y}-`
+  const row = await db.deliveryOrder.findFirst({
+    where: { doNumber: { startsWith: prefix } },
+    orderBy: { doNumber: "desc" },
+    select: { doNumber: true },
+  })
+  const lastN = row ? parseInt(row.doNumber.split("-")[2], 10) : 0
+  return `${prefix}${pad(lastN + 1)}`
 }
 
 // TODO(module-7): replace with a db-backed impl when invoice generation lands.
