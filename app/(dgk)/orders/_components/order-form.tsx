@@ -311,7 +311,7 @@ export function OrderForm({ customers }: OrderFormProps) {
                 <Input
                   type="number"
                   min={0}
-                  step={1000}
+                  step={1}
                   placeholder="e.g. 4500000"
                   value={field.value ?? ""}
                   onChange={(e) =>

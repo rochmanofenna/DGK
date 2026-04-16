@@ -78,7 +78,7 @@ export function PaymentForm({
             name="amountIDR"
             type="number"
             min={1}
-            step={1000}
+            step={1}
             placeholder={`e.g. ${remainingIDR}`}
             value={amount}
             onChange={(e) =>
