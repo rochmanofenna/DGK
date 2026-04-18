@@ -467,7 +467,11 @@ export async function createInvoiceAction(
         truckTypeLabel,
       })
 
-      const storageKey = `${INVOICE_FOLDER}/${invoiceNumber}.pdf`
+      // Timestamp suffix so orphaned PDFs from prior runs (e.g. after a
+       // demo reset that wipes DB rows but not Storage) don't block
+       // re-use of the same invoice number. The canonical PDF for a given
+       // invoice is always the one referenced by Invoice.pdfUrl.
+      const storageKey = `${INVOICE_FOLDER}/${invoiceNumber}-${Date.now()}.pdf`
       const { error: uploadErr } = await supabaseAdmin.storage
         .from(POD_BUCKET)
         .upload(storageKey, pdfBuffer, {
