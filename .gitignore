@@ -46,3 +46,8 @@ yarn-error.log*
 next-env.d.ts
 
 /prisma/generated
+
+# Sibling repo — dgk_website lives in its own git repo pointed at
+# github.com/rochmanofenna/dgk_website. Keeping it under this working
+# directory for convenience only; the erp_dgk repo must never track it.
+/dgk_website/
