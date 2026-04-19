@@ -34,7 +34,7 @@ export default async function DgkLayout({ children }: DgkLayoutProps) {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="flex h-14 items-center justify-between border-b border-border bg-card px-6">
-        <DGKLogo variant="horizontal" size={26} showSubline={false} />
+        <DGKLogo width={120} priority />
         <div className="flex items-center gap-5">
           <div className="hidden text-right sm:block">
             <div className="text-sm font-medium leading-tight text-foreground">

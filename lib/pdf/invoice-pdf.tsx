@@ -19,13 +19,13 @@ import "server-only"
  *     DJP-regulated Faktur Pajak.
  */
 
+import path from "node:path"
+
 import {
   Document,
+  Image,
   Page,
-  Path,
-  Rect,
   StyleSheet,
-  Svg,
   Text,
   View,
   renderToBuffer,
@@ -35,10 +35,15 @@ import { formatIDR } from "@/lib/currency"
 import { formatWIBDate, formatWIBDateTime } from "@/lib/time"
 import type { InvoiceType } from "@/prisma/generated/enums"
 
-// Brand tokens — mirrored from globals.css so the PDF letterhead stays in
-// lockstep with the in-app palette when Dylan updates the spec.
+// Brand token — red accent rule mirrors globals.css. Any other "brand"
+// treatment on this letterhead comes from the logo image itself; we do
+// not reconstruct the mark in code (see commit history 2026-04-19).
 const BRAND_RED = "#cc2229"
-const BRAND_BLUE = "#0066b3"
+
+// Absolute filesystem path to the logo asset. @react-pdf/renderer runs in
+// Node during rendering, so `Image src=` accepts a local path. Native
+// JPEG dimensions: 1228 x 610 → aspect ~2.013:1.
+const LOGO_SRC = path.join(process.cwd(), "public", "logo-dgk.jpeg")
 
 export interface InvoicePDFData {
   invoiceNumber: string
@@ -91,21 +96,8 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 24,
   },
-  letterhead: { flexDirection: "row", alignItems: "center", maxWidth: "62%" },
-  letterheadText: { flexDirection: "column", marginLeft: 10 },
-  wordmark: {
-    fontSize: 13,
-    fontFamily: "Helvetica-Bold",
-    letterSpacing: 0.6,
-    color: "#1a1a1a",
-  },
-  wordmarkSubline: {
-    fontSize: 7,
-    fontFamily: "Helvetica-Bold",
-    letterSpacing: 2,
-    color: BRAND_BLUE,
-    marginTop: 2,
-  },
+  // ~2.013:1 aspect ratio preserved: 160 wide × 80 tall.
+  logoImage: { width: 160, height: 80 },
   fromBlock: { flexDirection: "column", maxWidth: "62%", marginTop: 10 },
   fromName: { fontSize: 11, fontFamily: "Helvetica-Bold", marginBottom: 3 },
   invoiceBlock: { flexDirection: "column", alignItems: "flex-end" },
@@ -172,25 +164,6 @@ const styles = StyleSheet.create({
   },
 })
 
-/**
- * DGK brand mark reproduced with @react-pdf SVG primitives. Same geometry
- * as `components/brand/dgk-logo.tsx` (red rounded square, white block arrow
- * rotated -45° around center) so print and screen stay visually identical.
- * Size is in PDF points; the viewBox keeps the interior math at 100x100.
- */
-function DGKLogoMark({ size = 28 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 100 100">
-      <Rect x={0} y={0} width={100} height={100} rx={14} ry={14} fill={BRAND_RED} />
-      <Path
-        d="M20 60 H60 V70 L80 50 L60 30 V40 H20 Z"
-        fill="#ffffff"
-        transform="rotate(-45 50 50)"
-      />
-    </Svg>
-  )
-}
-
 function InvoiceDocument({ data }: { data: InvoicePDFData }) {
   // Only stamp DGK letterhead when DGK is the issuing org (customer
   // invoices). Vendor → DGK invoices are issued BY the vendor, so putting
@@ -206,23 +179,15 @@ function InvoiceDocument({ data }: { data: InvoicePDFData }) {
         {/* Brand-red rule across the top — letterhead cue before any ink. */}
         <View style={styles.brandRule} fixed />
 
-        {/* Header — lockup on the left (logo + wordmark + from-org details),
-         * invoice meta on the right. */}
+        {/* Header — DGK letterhead renders the real logo image (which
+         * already contains the icon + wordmark + subtitle). Vendor-issued
+         * invoices fall back to a plain text from-block so we never stamp
+         * DGK's mark on a document that isn't from DGK. */}
         <View style={styles.header}>
           <View>
             {isDgkIssued ? (
               <>
-                <View style={styles.letterhead}>
-                  <DGKLogoMark size={30} />
-                  <View style={styles.letterheadText}>
-                    <Text style={styles.wordmark}>
-                      DINAMIKA GLOBAL KORPORA
-                    </Text>
-                    <Text style={styles.wordmarkSubline}>
-                      HOLDINGS CORPORATION
-                    </Text>
-                  </View>
-                </View>
+                <Image src={LOGO_SRC} style={styles.logoImage} />
                 <View style={styles.fromBlock}>
                   <Text style={styles.small}>{data.fromOrg.address}</Text>
                   {data.fromOrg.taxId && (
