@@ -5,7 +5,7 @@ import { DGKLogo } from "@/components/brand/dgk-logo"
 import { Button } from "@/components/ui/button"
 import { UserRole } from "@/prisma/generated/enums"
 
-import { Sidebar } from "./_components/sidebar"
+import { TopNav } from "./_components/top-nav"
 import { signOutAction } from "./actions"
 
 const DGK_ROLES: UserRole[] = [
@@ -56,10 +56,8 @@ export default async function DgkLayout({ children }: DgkLayoutProps) {
           </form>
         </div>
       </header>
-      <div className="flex flex-1">
-        <Sidebar />
-        <main className="flex-1 px-8 py-8">{children}</main>
-      </div>
+      <TopNav />
+      <main className="flex-1 px-8 py-8">{children}</main>
     </div>
   )
 }
