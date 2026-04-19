@@ -39,17 +39,20 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       <div className="w-full max-w-[400px]">
         {/* Logo lockup — the image file already contains the icon, the
          * wordmark, and the "Holdings Corporation" subtitle, so no extra
-         * text is layered on top. Centered, staggered reveal. Scales down
-         * on narrow viewports via max-w-full / h-auto. */}
+         * text is layered on top. The inner card gives it a soft brand
+         * frame that pops off the cool-gray page background; sizing
+         * scales down on narrow viewports via max-w-full / h-auto. */}
         <div
           className="brand-rise mb-10 flex justify-center"
           style={{ animationDelay: "60ms" }}
         >
-          <DGKLogo
-            width={320}
-            priority
-            className="h-auto max-w-full"
-          />
+          <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
+            <DGKLogo
+              width={320}
+              priority
+              className="block h-auto max-w-full"
+            />
+          </div>
         </div>
 
         {/* Sign-in card */}
