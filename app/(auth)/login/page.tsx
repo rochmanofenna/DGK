@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 
 import { auth } from "@/auth"
+import { DGKLogo } from "@/components/brand/dgk-logo"
 
 import { LoginForm } from "./login-form"
 
@@ -28,62 +29,42 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   if (session) redirect(callbackUrl)
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center px-6 py-12">
-      {/* Editorial hairline frame — visible on wider viewports only */}
+    <div className="relative flex min-h-screen items-center justify-center bg-background px-6 py-16">
+      {/* Thin brand-red rule across the very top — subtle corporate touch */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-8 hidden rounded-sm border border-border/40 lg:block"
+        className="absolute inset-x-0 top-0 h-[3px] bg-[var(--brand-red)]"
       />
 
-      {/* Corner label — small typographic flourish */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute left-10 top-10 hidden font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 lg:block"
-      >
-        No. 2026 / 001
-      </div>
-      <div
-        aria-hidden
-        className="pointer-events-none absolute right-10 bottom-10 hidden font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/70 lg:block"
-      >
-        Jakarta · Indonesia
-      </div>
-
-      <div className="w-full max-w-[380px]">
-        {/* Wordmark */}
-        <div className="mb-10 text-center">
-          <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-            PT Dinamika Global Korpora
-          </p>
-          <h1 className="font-display text-[5.5rem] italic leading-[0.85] tracking-[-0.03em] text-foreground">
-            DGK
-          </h1>
-          <div className="mx-auto mt-6 flex items-center justify-center gap-3">
-            <span className="h-px w-8 bg-foreground/35" aria-hidden />
-            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              ERP
-            </span>
-            <span className="h-px w-8 bg-foreground/35" aria-hidden />
-          </div>
-          <p className="mt-5 text-[13px] text-muted-foreground">
-            Logistics operations, end-to-end.
-          </p>
+      <div className="w-full max-w-[400px]">
+        {/* Logo lockup — stacked, centered, staggered reveal */}
+        <div
+          className="brand-rise mb-10"
+          style={{ animationDelay: "60ms" }}
+        >
+          <DGKLogo variant="stacked" size={72} />
         </div>
 
-        {/* Form card */}
-        <div className="rounded-sm bg-card p-7 ring-1 ring-border/80 shadow-[0_1px_0_0_rgba(30,22,15,0.02)]">
-          <div className="mb-6 flex items-baseline justify-between border-b border-border/80 pb-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+        {/* Sign-in card */}
+        <div
+          className="brand-rise rounded-lg border border-border bg-card p-8 shadow-[0_1px_2px_rgba(17,24,39,0.04),0_8px_24px_-12px_rgba(17,24,39,0.08)]"
+          style={{ animationDelay: "180ms" }}
+        >
+          <div className="mb-6 flex items-baseline justify-between border-b border-border pb-4">
+            <h1 className="text-sm font-semibold text-foreground">
               Sign in
-            </p>
-            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+            </h1>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
               v0.1 · MVP
             </p>
           </div>
           <LoginForm callbackUrl={callbackUrl} initialError={params.error} />
         </div>
 
-        <p className="mt-8 text-center text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70">
+        <p
+          className="brand-rise mt-8 text-center text-[11px] uppercase tracking-[0.18em] text-muted-foreground"
+          style={{ animationDelay: "300ms" }}
+        >
           Internal use · Authorized personnel only
         </p>
       </div>

@@ -22,7 +22,10 @@ import "server-only"
 import {
   Document,
   Page,
+  Path,
+  Rect,
   StyleSheet,
+  Svg,
   Text,
   View,
   renderToBuffer,
@@ -31,6 +34,11 @@ import {
 import { formatIDR } from "@/lib/currency"
 import { formatWIBDate, formatWIBDateTime } from "@/lib/time"
 import type { InvoiceType } from "@/prisma/generated/enums"
+
+// Brand tokens — mirrored from globals.css so the PDF letterhead stays in
+// lockstep with the in-app palette when Dylan updates the spec.
+const BRAND_RED = "#cc2229"
+const BRAND_BLUE = "#0066b3"
 
 export interface InvoicePDFData {
   invoiceNumber: string
@@ -62,9 +70,20 @@ export interface InvoicePDFData {
 const styles = StyleSheet.create({
   page: {
     padding: 40,
+    paddingTop: 48,
     fontSize: 10,
     fontFamily: "Helvetica",
-    color: "#111",
+    color: "#1a1a1a",
+  },
+  // Brand-red rule running across the very top of every page — the print
+  // equivalent of the 3px rule on the web login.
+  brandRule: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 4,
+    backgroundColor: BRAND_RED,
   },
   header: {
     flexDirection: "row",
@@ -72,14 +91,30 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 24,
   },
-  fromBlock: { flexDirection: "column", maxWidth: "60%" },
-  fromName: { fontSize: 14, fontFamily: "Helvetica-Bold", marginBottom: 4 },
+  letterhead: { flexDirection: "row", alignItems: "center", maxWidth: "62%" },
+  letterheadText: { flexDirection: "column", marginLeft: 10 },
+  wordmark: {
+    fontSize: 13,
+    fontFamily: "Helvetica-Bold",
+    letterSpacing: 0.6,
+    color: "#1a1a1a",
+  },
+  wordmarkSubline: {
+    fontSize: 7,
+    fontFamily: "Helvetica-Bold",
+    letterSpacing: 2,
+    color: BRAND_BLUE,
+    marginTop: 2,
+  },
+  fromBlock: { flexDirection: "column", maxWidth: "62%", marginTop: 10 },
+  fromName: { fontSize: 11, fontFamily: "Helvetica-Bold", marginBottom: 3 },
   invoiceBlock: { flexDirection: "column", alignItems: "flex-end" },
   invoiceTitle: {
     fontSize: 18,
     fontFamily: "Helvetica-Bold",
     letterSpacing: 2,
     marginBottom: 6,
+    color: "#1a1a1a",
   },
   invoiceMeta: { fontSize: 10, color: "#333", lineHeight: 1.4 },
   divider: { borderBottom: "1pt solid #ddd", marginVertical: 12 },
@@ -137,7 +172,30 @@ const styles = StyleSheet.create({
   },
 })
 
+/**
+ * DGK brand mark reproduced with @react-pdf SVG primitives. Same geometry
+ * as `components/brand/dgk-logo.tsx` (red rounded square, white block arrow
+ * rotated -45° around center) so print and screen stay visually identical.
+ * Size is in PDF points; the viewBox keeps the interior math at 100x100.
+ */
+function DGKLogoMark({ size = 28 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 100 100">
+      <Rect x={0} y={0} width={100} height={100} rx={14} ry={14} fill={BRAND_RED} />
+      <Path
+        d="M20 60 H60 V70 L80 50 L60 30 V40 H20 Z"
+        fill="#ffffff"
+        transform="rotate(-45 50 50)"
+      />
+    </Svg>
+  )
+}
+
 function InvoiceDocument({ data }: { data: InvoicePDFData }) {
+  // Only stamp DGK letterhead when DGK is the issuing org (customer
+  // invoices). Vendor → DGK invoices are issued BY the vendor, so putting
+  // DGK's logo on them would misrepresent who the invoice is from.
+  const isDgkIssued = data.type === "DGK_TO_CUSTOMER"
   return (
     <Document
       title={`Invoice ${data.invoiceNumber}`}
@@ -145,13 +203,43 @@ function InvoiceDocument({ data }: { data: InvoicePDFData }) {
       subject={data.type === "VENDOR_TO_DGK" ? "Vendor invoice" : "Customer invoice"}
     >
       <Page size="A4" style={styles.page}>
-        {/* Header */}
+        {/* Brand-red rule across the top — letterhead cue before any ink. */}
+        <View style={styles.brandRule} fixed />
+
+        {/* Header — lockup on the left (logo + wordmark + from-org details),
+         * invoice meta on the right. */}
         <View style={styles.header}>
-          <View style={styles.fromBlock}>
-            <Text style={styles.fromName}>{data.fromOrg.name}</Text>
-            <Text style={styles.small}>{data.fromOrg.address}</Text>
-            {data.fromOrg.taxId && (
-              <Text style={styles.small}>NPWP: {data.fromOrg.taxId}</Text>
+          <View>
+            {isDgkIssued ? (
+              <>
+                <View style={styles.letterhead}>
+                  <DGKLogoMark size={30} />
+                  <View style={styles.letterheadText}>
+                    <Text style={styles.wordmark}>
+                      DINAMIKA GLOBAL KORPORA
+                    </Text>
+                    <Text style={styles.wordmarkSubline}>
+                      HOLDINGS CORPORATION
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.fromBlock}>
+                  <Text style={styles.small}>{data.fromOrg.address}</Text>
+                  {data.fromOrg.taxId && (
+                    <Text style={styles.small}>
+                      NPWP: {data.fromOrg.taxId}
+                    </Text>
+                  )}
+                </View>
+              </>
+            ) : (
+              <View style={styles.fromBlock}>
+                <Text style={styles.fromName}>{data.fromOrg.name}</Text>
+                <Text style={styles.small}>{data.fromOrg.address}</Text>
+                {data.fromOrg.taxId && (
+                  <Text style={styles.small}>NPWP: {data.fromOrg.taxId}</Text>
+                )}
+              </View>
             )}
           </View>
           <View style={styles.invoiceBlock}>

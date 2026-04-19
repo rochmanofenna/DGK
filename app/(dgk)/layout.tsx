@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 
 import { auth } from "@/auth"
+import { DGKLogo } from "@/components/brand/dgk-logo"
 import { Button } from "@/components/ui/button"
 import { UserRole } from "@/prisma/generated/enums"
 
@@ -32,26 +33,24 @@ export default async function DgkLayout({ children }: DgkLayoutProps) {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between border-b border-border bg-background/80 px-6 py-3 backdrop-blur-sm">
-        <div className="flex items-baseline gap-3">
-          <span className="font-display text-xl leading-none tracking-tight">
-            DGK
-          </span>
-          <span className="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground md:inline">
-            Dinamika Global Korpora
-          </span>
-        </div>
+      <header className="flex h-14 items-center justify-between border-b border-border bg-card px-6">
+        <DGKLogo variant="horizontal" size={26} showSubline={false} />
         <div className="flex items-center gap-5">
           <div className="hidden text-right sm:block">
-            <div className="text-sm font-medium leading-tight">
+            <div className="text-sm font-medium leading-tight text-foreground">
               {session.user.name}
             </div>
-            <div className="text-[10px] uppercase tracking-[0.1em] leading-tight text-muted-foreground">
+            <div className="text-[10px] uppercase tracking-[0.12em] leading-tight text-muted-foreground">
               {roleLabel}
             </div>
           </div>
           <form action={signOutAction}>
-            <Button type="submit" variant="ghost" size="sm">
+            <Button
+              type="submit"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground"
+            >
               Sign out
             </Button>
           </form>

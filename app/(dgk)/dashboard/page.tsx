@@ -45,13 +45,13 @@ function Widget({ label, value, href, tone = "normal" }: WidgetProps) {
   return (
     <Link
       href={href}
-      className="group/widget relative block overflow-hidden rounded-sm bg-card px-5 py-5 ring-1 ring-border/80 shadow-[0_1px_0_0_rgba(30,22,15,0.02)] transition-all hover:-translate-y-px hover:ring-foreground/25 hover:shadow-[0_2px_10px_-2px_rgba(30,22,15,0.06)]"
+      className="group/widget relative block overflow-hidden rounded-md border border-border bg-card px-5 py-5 transition-all hover:-translate-y-px hover:border-foreground/25 hover:shadow-[0_2px_12px_-4px_rgba(17,24,39,0.08)]"
     >
-      <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
         {label}
       </div>
       <div
-        className={`mt-3 font-display text-[1.875rem] leading-none tracking-tight ${
+        className={`mt-3 text-[1.875rem] font-semibold leading-none tracking-tight tabular-nums ${
           tone === "alert" ? "text-destructive" : "text-foreground"
         }`}
       >
@@ -176,12 +176,12 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between gap-6 border-b border-border/60 pb-5">
+      <div className="flex items-end justify-between gap-6 border-b border-border pb-5">
         <div>
-          <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             Operations overview
           </p>
-          <h1 className="font-display text-4xl leading-none tracking-tight">
+          <h1 className="text-3xl font-semibold leading-none tracking-tight text-foreground">
             Dashboard
           </h1>
         </div>

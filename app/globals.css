@@ -5,24 +5,24 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * "Freight Editorial" theme.
+ * DGK Corporate ERP theme.
  *
- * Cream paper background, deep warm-ink text, a single saturated
- * terracotta accent for CTAs and focus rings. Fraunces (serif) for
- * display + headings, Geist (sans) for UI, Geist Mono for identifiers
- * and numbers. Sharp radii; hairline borders; muted neutral statuses,
- * emerald reserved for terminal-success states (PAID / DELIVERED /
- * CONFIRMED) and set in the StatusBadge classByStatus map.
+ * Derived from the official DGK brand mark: vivid red square, black
+ * wordmark, blue subtitle. Background is cool near-white; surfaces are
+ * pure white; dividers and borders are cold gray hairlines. Primary
+ * actions and focus rings carry the brand red; informational accents
+ * (links, the "Holdings Corporation" subtitle, chart series #2) carry
+ * the brand blue. Terminal-success states (PAID / DELIVERED / CONFIRMED)
+ * use emerald — kept as semantic colors, not part of the brand palette.
  */
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
 
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
-  --font-display: var(--font-fraunces);
-  --font-heading: var(--font-fraunces);
+  --font-wordmark: var(--font-barlow-condensed);
 
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -53,6 +53,8 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-brand-red: var(--brand-red);
+  --color-brand-blue: var(--brand-blue);
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -64,87 +66,104 @@
 }
 
 :root {
-  /* Paper / ink */
-  --background: oklch(0.967 0.012 85);       /* warm cream */
-  --foreground: oklch(0.2 0.015 55);         /* deep warm ink */
-  --card: oklch(0.99 0.006 85);              /* near-white paper */
-  --card-foreground: oklch(0.2 0.015 55);
-  --popover: oklch(0.99 0.006 85);
-  --popover-foreground: oklch(0.2 0.015 55);
+  /* Brand marks — sampled from the DGK logo spec sheet. */
+  --brand-red: #cc2229;
+  --brand-red-hover: #b01d23;
+  --brand-blue: #0066b3;
 
-  /* Terracotta accent — CTAs, focus rings, primary buttons */
-  --primary: oklch(0.54 0.155 40);
-  --primary-foreground: oklch(0.985 0.008 85);
+  /* Surfaces — cool near-white; pure white cards for contrast. */
+  --background: #f7f8fa;
+  --foreground: #1a1a1a;
+  --card: #ffffff;
+  --card-foreground: #1a1a1a;
+  --popover: #ffffff;
+  --popover-foreground: #1a1a1a;
 
-  /* Warm neutrals */
-  --secondary: oklch(0.915 0.012 80);
-  --secondary-foreground: oklch(0.25 0.02 55);
-  --muted: oklch(0.925 0.01 80);
-  --muted-foreground: oklch(0.5 0.015 60);
-  --accent: oklch(0.92 0.012 80);
-  --accent-foreground: oklch(0.22 0.018 55);
+  /* Primary — brand red. Used for CTAs, focus rings, active nav. */
+  --primary: #cc2229;
+  --primary-foreground: #ffffff;
 
-  --destructive: oklch(0.52 0.175 25);
+  /* Secondary / muted neutrals — cool gray. */
+  --secondary: #eef1f4;
+  --secondary-foreground: #1a1a1a;
+  --muted: #f1f3f5;
+  --muted-foreground: #64748b;
+  --accent: #eef1f4;
+  --accent-foreground: #1a1a1a;
 
-  /* Hairlines */
-  --border: oklch(0.84 0.015 70);
-  --input: oklch(0.84 0.015 70);
-  --ring: oklch(0.54 0.155 40);
+  /* Destructive — deeper/darker than brand red so it reads as danger,
+   * not as a regular CTA. */
+  --destructive: #b91c1c;
 
-  /* Charts — muted palette, cream-friendly */
-  --chart-1: oklch(0.54 0.155 40);
-  --chart-2: oklch(0.55 0.08 60);
-  --chart-3: oklch(0.45 0.06 50);
-  --chart-4: oklch(0.35 0.04 40);
-  --chart-5: oklch(0.25 0.02 50);
+  /* Hairlines — light cool gray. */
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #cc2229;
 
-  /* Sharper overall — document-like */
-  --radius: 0.3rem;
+  /* Charts — brand-anchored palette. */
+  --chart-1: #cc2229; /* brand red */
+  --chart-2: #0066b3; /* brand blue */
+  --chart-3: #64748b; /* slate */
+  --chart-4: #0ea5e9; /* sky (for distinctness) */
+  --chart-5: #1a1a1a; /* ink */
 
-  /* Sidebar — one notch darker than the page for gentle separation */
-  --sidebar: oklch(0.95 0.014 82);
-  --sidebar-foreground: oklch(0.2 0.015 55);
-  --sidebar-primary: oklch(0.54 0.155 40);
-  --sidebar-primary-foreground: oklch(0.985 0.008 85);
-  --sidebar-accent: oklch(0.9 0.014 80);
-  --sidebar-accent-foreground: oklch(0.22 0.018 55);
-  --sidebar-border: oklch(0.85 0.015 72);
-  --sidebar-ring: oklch(0.54 0.155 40);
+  --radius: 0.5rem;
+
+  /* Sidebar — pure white, one hairline off the main content area. */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1a1a1a;
+  --sidebar-primary: #cc2229;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f1f3f5;
+  --sidebar-accent-foreground: #1a1a1a;
+  --sidebar-border: #e5e7eb;
+  --sidebar-ring: #cc2229;
 }
 
 .dark {
-  /* Dark mode left in place for future — not wired through the UI yet. */
-  --background: oklch(0.17 0.015 55);
-  --foreground: oklch(0.96 0.012 85);
-  --card: oklch(0.22 0.017 55);
-  --card-foreground: oklch(0.96 0.012 85);
-  --popover: oklch(0.22 0.017 55);
-  --popover-foreground: oklch(0.96 0.012 85);
-  --primary: oklch(0.64 0.165 42);
-  --primary-foreground: oklch(0.15 0.015 55);
-  --secondary: oklch(0.27 0.02 55);
-  --secondary-foreground: oklch(0.96 0.012 85);
-  --muted: oklch(0.27 0.02 55);
-  --muted-foreground: oklch(0.7 0.02 70);
-  --accent: oklch(0.27 0.02 55);
-  --accent-foreground: oklch(0.96 0.012 85);
-  --destructive: oklch(0.66 0.18 25);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.64 0.165 42);
-  --chart-1: oklch(0.64 0.165 42);
-  --chart-2: oklch(0.7 0.08 60);
-  --chart-3: oklch(0.55 0.06 50);
-  --chart-4: oklch(0.45 0.04 40);
-  --chart-5: oklch(0.35 0.02 50);
-  --sidebar: oklch(0.2 0.016 55);
-  --sidebar-foreground: oklch(0.96 0.012 85);
-  --sidebar-primary: oklch(0.64 0.165 42);
-  --sidebar-primary-foreground: oklch(0.15 0.015 55);
-  --sidebar-accent: oklch(0.27 0.02 55);
-  --sidebar-accent-foreground: oklch(0.96 0.012 85);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.64 0.165 42);
+  /* Dark scheme kept in parity with the new palette for future use.
+   * No dark-mode toggle wired yet. */
+  --brand-red: #e63946;
+  --brand-red-hover: #f04553;
+  --brand-blue: #2e8ed6;
+
+  --background: #0b0d10;
+  --foreground: #f5f7fa;
+  --card: #151821;
+  --card-foreground: #f5f7fa;
+  --popover: #151821;
+  --popover-foreground: #f5f7fa;
+
+  --primary: #e63946;
+  --primary-foreground: #ffffff;
+
+  --secondary: #1b1f2a;
+  --secondary-foreground: #f5f7fa;
+  --muted: #1b1f2a;
+  --muted-foreground: #94a3b8;
+  --accent: #1b1f2a;
+  --accent-foreground: #f5f7fa;
+
+  --destructive: #ef4444;
+
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #e63946;
+
+  --chart-1: #e63946;
+  --chart-2: #2e8ed6;
+  --chart-3: #94a3b8;
+  --chart-4: #38bdf8;
+  --chart-5: #f5f7fa;
+
+  --sidebar: #0e1117;
+  --sidebar-foreground: #f5f7fa;
+  --sidebar-primary: #e63946;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1b1f2a;
+  --sidebar-accent-foreground: #f5f7fa;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #e63946;
 }
 
 @layer base {
@@ -154,7 +173,7 @@
 
   html {
     @apply font-sans;
-    font-feature-settings: "cv11", "ss03", "cv02";
+    font-feature-settings: "cv11", "ss01", "cv02";
   }
 
   body {
@@ -162,42 +181,35 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    /* New stacking context so the grain pseudo can sit at z-index:-1
-     * without falling behind the page background. Lets portaled
-     * fixed-position elements (dialogs, popovers) position normally. */
+    /* Stacking context so portaled fixed elements (dialogs, popovers)
+     * position against the viewport correctly. */
     isolation: isolate;
   }
 
-  /* Every h1/h2 across the app picks up Fraunces automatically. */
   h1,
-  h2 {
-    font-family: var(--font-display);
-    font-weight: 400;
-    letter-spacing: -0.022em;
-  }
-
-  h1 {
-    font-feature-settings: "ss01";
+  h2,
+  h3 {
+    letter-spacing: -0.015em;
   }
 }
 
-/* Utility shortcut so any element can opt into the display face. */
-.font-display {
-  font-family: var(--font-display);
-  letter-spacing: -0.02em;
+/* Brand wordmark utility — lets any element opt into Barlow Condensed. */
+.font-wordmark {
+  font-family: var(--font-wordmark);
 }
 
-/*
- * Subtle paper grain — very low opacity SVG noise over the body.
- * Small data URI; no extra request. Comment this block out to disable.
- */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: -1;
-  opacity: 0.035;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.15   0 0 0 0 0.12   0 0 0 0 0.08   0 0 0 0.8 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  background-repeat: repeat;
+/* Subtle page-load reveal used on the login hero stack. Staggered via
+ * inline animation-delay to land in sequence. */
+@keyframes brand-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.brand-rise {
+  animation: brand-rise 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
