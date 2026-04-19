@@ -12,7 +12,9 @@ import { cn } from "@/lib/utils"
  * subtitle. Wrapping it with extra text or redrawing the arrow duplicates
  * or misrepresents the artwork (see 2026-04-19 correction from Tante Lulu).
  *
- * Native pixel dimensions: 1228 × 610. Aspect ~2.013:1.
+ * Native pixel dimensions: 935 × 345 (cropped from the 40×15 cm spec
+ * sheet — the design print included a gray background and measurement
+ * annotations that are not part of the mark). Aspect ~2.71:1.
  */
 
 interface DGKLogoProps {
@@ -23,7 +25,7 @@ interface DGKLogoProps {
   priority?: boolean
 }
 
-const LOGO_ASPECT = 1228 / 610
+const LOGO_ASPECT = 935 / 345
 
 export function DGKLogo({
   width = 160,

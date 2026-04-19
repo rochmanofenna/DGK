@@ -42,7 +42,7 @@ const BRAND_RED = "#cc2229"
 
 // Absolute filesystem path to the logo asset. @react-pdf/renderer runs in
 // Node during rendering, so `Image src=` accepts a local path. Native
-// JPEG dimensions: 1228 x 610 → aspect ~2.013:1.
+// JPEG dimensions after cropping: 935 × 345 → aspect ~2.71:1.
 const LOGO_SRC = path.join(process.cwd(), "public", "logo-dgk.jpeg")
 
 export interface InvoicePDFData {
@@ -96,8 +96,8 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 24,
   },
-  // ~2.013:1 aspect ratio preserved: 160 wide × 80 tall.
-  logoImage: { width: 160, height: 80 },
+  // ~2.71:1 aspect ratio preserved: 160 wide × 59 tall.
+  logoImage: { width: 160, height: 59 },
   fromBlock: { flexDirection: "column", maxWidth: "62%", marginTop: 10 },
   fromName: { fontSize: 11, fontFamily: "Helvetica-Bold", marginBottom: 3 },
   invoiceBlock: { flexDirection: "column", alignItems: "flex-end" },
