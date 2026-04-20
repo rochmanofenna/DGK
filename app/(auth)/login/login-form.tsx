@@ -42,6 +42,9 @@ export function LoginForm({
   return (
     <form action={action} className="space-y-4">
       <input type="hidden" name="callbackUrl" value={callbackUrl} />
+      {/* The server uses this to enforce that Employee creds can't sign in
+       * through the Client card and vice-versa. See auth.ts authorize(). */}
+      <input type="hidden" name="portal" value={variant} />
 
       <div className="space-y-2">
         <Label htmlFor={emailId}>Email</Label>
