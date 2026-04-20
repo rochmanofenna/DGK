@@ -5,30 +5,24 @@ import { DGKLogo } from "@/components/brand/dgk-logo"
 import { Button } from "@/components/ui/button"
 import { UserRole } from "@/prisma/generated/enums"
 
-import { CustomerNav } from "./_components/customer-nav"
+import { CarrierNav } from "./_components/carrier-nav"
 import { PortalChip } from "./_components/portal-chip"
 import { signOutAction } from "./actions"
 
-interface CustomerLayoutProps {
+interface VendorLayoutProps {
   children: React.ReactNode
 }
 
 /**
- * Auth + role gate for the customer-facing portal. Proxy's `authorized`
- * callback is the first line of defence (sends DGK roles to /dashboard
- * and anonymous users to /login); this layout is the second — it runs
- * in the Server Component render and is the backstop if the proxy ever
- * drifts.
+ * Auth + role gate for the carrier/vendor portal. Proxy's `authorized`
+ * callback is the first line (sends CUSTOMER_USER to /portal, DGK roles
+ * to /dashboard, and unauth'd users to /login); this layout is the
+ * second — the backstop if the proxy ever drifts.
  */
-export default async function CustomerLayout({
-  children,
-}: CustomerLayoutProps) {
+export default async function VendorLayout({ children }: VendorLayoutProps) {
   const session = await auth()
-  if (!session) redirect("/login?callbackUrl=/portal")
-  // Route mis-role'd sessions directly to their home portal — no bounce
-  // through /dashboard for vendors, which would then re-redirect.
-  if (session.user.role === UserRole.VENDOR_USER) redirect("/carrier")
-  if (session.user.role !== UserRole.CUSTOMER_USER) redirect("/dashboard")
+  if (!session) redirect("/login?callbackUrl=/carrier")
+  if (session.user.role !== UserRole.VENDOR_USER) redirect("/dashboard")
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -43,7 +37,7 @@ export default async function CustomerLayout({
               {session.user.name}
             </div>
             <div className="text-[10px] uppercase tracking-[0.12em] leading-tight text-muted-foreground">
-              Client
+              Carrier
             </div>
           </div>
           <form action={signOutAction}>
@@ -58,7 +52,7 @@ export default async function CustomerLayout({
           </form>
         </div>
       </header>
-      <CustomerNav />
+      <CarrierNav />
       <main className="flex-1 px-8 py-8">{children}</main>
     </div>
   )

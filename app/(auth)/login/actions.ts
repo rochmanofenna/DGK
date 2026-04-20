@@ -22,11 +22,12 @@ export async function signInAction(
   formData: FormData,
 ): Promise<LoginState> {
   const redirectTo = (formData.get("callbackUrl") as string) || "/dashboard"
-  // Narrow the form-provided portal field. Anything other than the two
+  // Narrow the form-provided portal field. Anything other than the three
   // known values is treated as "employee" — the authorize() callback will
   // reject a mismatch either way, so this is just belt-and-suspenders.
   const portalRaw = formData.get("portal")
-  const portal = portalRaw === "client" ? "client" : "employee"
+  const portal =
+    portalRaw === "client" || portalRaw === "carrier" ? portalRaw : "employee"
 
   try {
     await signIn("credentials", {

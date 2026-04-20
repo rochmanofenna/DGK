@@ -10,12 +10,12 @@ import { UserRole } from "@/prisma/generated/enums"
 const credentialsSchema = z.object({
   email: z.string().min(1),
   password: z.string().min(1),
-  // Which login card the submission came from. The two cards on /login look
+  // Which login card the submission came from. The cards on /login look
   // identical to the server, so without this we'd accept an employee's
   // credentials through the Client card (and vice-versa) — a real footgun
   // since the post-auth redirect would then punt the user to the wrong
   // portal for a split second before the layout gate intervened.
-  portal: z.enum(["employee", "client"]),
+  portal: z.enum(["employee", "client", "carrier"]),
 })
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -45,11 +45,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Enforce that the login card matches the user's role. Return the
         // same `null` as a bad password so the UI surface is identical —
         // we don't want to leak "this email exists but through the other
-        // portal", which would let an attacker enumerate DGK staff by
-        // poking the Client card.
+        // portal", which would let an attacker enumerate accounts by
+        // poking whichever card they think is least-guarded.
         const isCustomer = user.role === UserRole.CUSTOMER_USER
+        const isVendor = user.role === UserRole.VENDOR_USER
+        const isDgk = !isCustomer && !isVendor
         if (portal === "client" && !isCustomer) return null
-        if (portal === "employee" && isCustomer) return null
+        if (portal === "carrier" && !isVendor) return null
+        if (portal === "employee" && !isDgk) return null
 
         // The return value becomes the `user` arg to the jwt callback and
         // is persisted in the JWT for the session's lifetime.

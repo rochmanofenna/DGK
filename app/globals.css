@@ -55,6 +55,7 @@
   --color-card: var(--card);
   --color-brand-red: var(--brand-red);
   --color-brand-blue: var(--brand-blue);
+  --color-brand-green: var(--brand-green);
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -70,6 +71,10 @@
   --brand-red: #cc2229;
   --brand-red-hover: #b01d23;
   --brand-blue: #0066b3;
+  /* Carrier-portal accent. Not part of the corporate identity; used only
+   * to visually separate the third portal (drivers) from Employee (red)
+   * and Client (blue). Tuned to the same mid-saturation tier. */
+  --brand-green: #16a34a;
 
   /* Surfaces — cool near-white; pure white cards for contrast. */
   --background: #f7f8fa;
@@ -126,6 +131,7 @@
   --brand-red: #e63946;
   --brand-red-hover: #f04553;
   --brand-blue: #2e8ed6;
+  --brand-green: #22c55e;
 
   --background: #0b0d10;
   --foreground: #f5f7fa;

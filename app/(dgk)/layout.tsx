@@ -27,6 +27,11 @@ interface DgkLayoutProps {
 export default async function DgkLayout({ children }: DgkLayoutProps) {
   const session = await auth()
   if (!session) redirect("/login?callbackUrl=/dashboard")
+  // Send mis-role'd sessions directly to the right portal instead of
+  // bouncing through /login. The proxy should catch these first; this
+  // is the backstop, and it shouldn't create ping-pong.
+  if (session.user.role === UserRole.CUSTOMER_USER) redirect("/portal")
+  if (session.user.role === UserRole.VENDOR_USER) redirect("/carrier")
   if (!DGK_ROLES.includes(session.user.role)) redirect("/login")
 
   const roleLabel = session.user.role.replace(/_/g, " ").toLowerCase()

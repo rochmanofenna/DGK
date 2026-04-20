@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils"
 
 import { signInAction, type LoginState } from "./actions"
 
-export type LoginVariant = "employee" | "client"
+export type LoginVariant = "employee" | "client" | "carrier"
 
 interface LoginFormProps {
   callbackUrl: string
@@ -82,16 +82,17 @@ export function LoginForm({
 
 function SubmitButton({ variant }: { variant: LoginVariant }) {
   const { pending } = useFormStatus()
-  // Client variant swaps the default red primary for brand-blue so the
-  // two cards read as "two doors" — same lobby, different entrance.
-  const isClient = variant === "client"
+  // Employee stays on brand-red (default primary); Client gets brand-blue;
+  // Carrier gets brand-green. Three doors, same lobby.
   return (
     <Button
       type="submit"
       className={cn(
         "w-full",
-        isClient &&
+        variant === "client" &&
           "bg-[var(--brand-blue)] text-white hover:bg-[var(--brand-blue)]/90",
+        variant === "carrier" &&
+          "bg-[var(--brand-green)] text-white hover:bg-[var(--brand-green)]/90",
       )}
       disabled={pending}
     >

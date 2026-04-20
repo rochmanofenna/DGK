@@ -8,6 +8,7 @@
  * Placeholders in this file (find-and-replace when reals arrive):
  *   - DGK user passwords (ops-dev-pw-change-me, finance-dev-pw-change-me)
  *   - Customer user passwords (berkah/sumber/arumi-dev-pw-change-me)
+ *   - Carrier user password (carrier-dev-pw-change-me)
  *   - User names (Rina Pratama, Bayu Santoso, + 3 customer contacts)
  *   - DGK: address, taxId, contactPerson, phone, bankName, bankAccount
  *   - Transcoll: address, taxId (other fields come from SPEC §11 verbatim)
@@ -44,6 +45,7 @@ const PASSWORDS: Record<string, string> = {
   "customer@berkahpangan.dev": "berkah-dev-pw-change-me",
   "customer@sumberrasa.dev":   "sumber-dev-pw-change-me",
   "customer@arumi.dev":        "arumi-dev-pw-change-me",
+  "carrier@transcoll.dev":     "carrier-dev-pw-change-me",
 }
 
 async function seedOrganizations() {
@@ -242,6 +244,24 @@ async function seedUsers() {
       update: { passwordHash: pwHash },
     })
   }
+
+  // Vendor user — Transcoll's dispatcher. One account for now; if
+  // multiple dispatchers need their own logins later we'll seed more
+  // against the same organizationId.
+  const carrierHash = await hash(PASSWORDS["carrier@transcoll.dev"], 10)
+  await prisma.user.upsert({
+    where: { email: "carrier@transcoll.dev" },
+    create: {
+      id: "seed_user_carrier_transcoll",
+      email: "carrier@transcoll.dev",
+      passwordHash: carrierHash,
+      role: "VENDOR_USER",
+      name: "Didik Setiyanto",           // matches Transcoll org contactPerson
+      phone: "+62 812 1257 3212",        // [DEV PLACEHOLDER]
+      organizationId: "seed_transcoll_org",
+    },
+    update: { passwordHash: carrierHash },
+  })
 }
 
 async function seedRateCard() {
@@ -324,6 +344,7 @@ async function main() {
   console.log(`  Customer users:  customer@berkahpangan.dev / ${PASSWORDS["customer@berkahpangan.dev"]}`)
   console.log(`                   customer@sumberrasa.dev  / ${PASSWORDS["customer@sumberrasa.dev"]}`)
   console.log(`                   customer@arumi.dev       / ${PASSWORDS["customer@arumi.dev"]}`)
+  console.log(`  Carrier user:    carrier@transcoll.dev    / ${PASSWORDS["carrier@transcoll.dev"]}`)
   console.log(`  Vendor:          Transcoll (seed_transcoll_vendor)`)
   console.log(`  Customers:       Berkah Pangan, Sumber Rasa, Arumi Boga`)
   console.log(`  Rate card:       seed_transcoll_ratecard_v1, ${rateCount} entries`)

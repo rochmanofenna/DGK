@@ -36,10 +36,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         className="absolute inset-x-0 top-0 h-[3px] bg-[var(--brand-red)]"
       />
 
-      {/* Wider container so two cards fit side by side on desktop. Kept
-       * narrow enough that the cards don't drift apart into "lost in a
-       * field" territory. */}
-      <div className="w-full max-w-[880px]">
+      {/* Container sized for up to three cards side-by-side on lg+.
+       * Below lg it collapses to two columns (md) and then one (mobile)
+       * — same pattern the dual-card layout used. */}
+      <div className="w-full max-w-[1120px]">
         {/* Logo lockup — kept in the same soft-brand-framed card so the
          * visual identity up top is unchanged; just recentered above the
          * dual-card row. */}
@@ -56,12 +56,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </div>
         </div>
 
-        {/* Two sign-in cards. Grid collapses to a single column under
-         * md (<768px), Employee on top (as requested) by DOM order.
-         * Both forms post to the exact same `signInAction` — NextAuth's
-         * `authorized` callback handles role → portal routing after auth,
-         * so the only difference between the cards is the label + accent. */}
-        <div className="grid gap-6 md:grid-cols-2">
+        {/* Three sign-in cards. Grid collapses to two columns on md and
+         * one on mobile. Employee first by DOM order (the most common
+         * login and the one that gets `autoFocus`).
+         * Every form posts to the same `signInAction`. The hidden `portal`
+         * field on each form tells the server which card submitted — the
+         * `authorize()` callback rejects role/card mismatches, so the
+         * cards are not just cosmetically different, they gate access. */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <div
             className="brand-rise rounded-lg border border-border bg-card p-8 shadow-[0_1px_2px_rgba(17,24,39,0.04),0_8px_24px_-12px_rgba(17,24,39,0.08)]"
             style={{ animationDelay: "180ms" }}
@@ -101,16 +103,31 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </div>
             {/* `initialError` intentionally only wired to the Employee card —
                 the `?error=` query param can't tell us which card the user
-                submitted, and showing the same error on both reads as
-                "something's broken here too." Post-submit errors come
+                submitted, and showing the same error on three cards reads
+                as "something's broken everywhere." Post-submit errors come
                 through `useActionState` per-form, which is correct. */}
             <LoginForm callbackUrl={callbackUrl} variant="client" />
+          </div>
+
+          <div
+            className="brand-rise rounded-lg border border-border bg-card p-8 shadow-[0_1px_2px_rgba(17,24,39,0.04),0_8px_24px_-12px_rgba(17,24,39,0.08)]"
+            style={{ animationDelay: "300ms" }}
+          >
+            <div className="mb-6 border-b border-border pb-4">
+              <h1 className="text-sm font-semibold text-foreground">
+                Carrier login
+              </h1>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Vendor dispatch &amp; delivery
+              </p>
+            </div>
+            <LoginForm callbackUrl={callbackUrl} variant="carrier" />
           </div>
         </div>
 
         <p
           className="brand-rise mt-8 text-center text-[11px] uppercase tracking-[0.18em] text-muted-foreground"
-          style={{ animationDelay: "300ms" }}
+          style={{ animationDelay: "360ms" }}
         >
           Internal use · Authorized personnel only
         </p>

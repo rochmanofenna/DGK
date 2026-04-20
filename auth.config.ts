@@ -44,15 +44,27 @@ export const authConfig = {
       if (pathname.startsWith("/login")) return true
       if (!auth) return false
 
-      // Role-aware routing. Customer sessions may only see `/portal/*`;
-      // DGK sessions may only see the DGK surface. Single source of
-      // truth — layout gates are still there as a second line.
-      const isCustomer = auth.user.role === UserRole.CUSTOMER_USER
+      // Role-aware routing. Each role has exactly one home surface:
+      //   CUSTOMER_USER → /portal/*
+      //   VENDOR_USER   → /carrier/*
+      //   DGK roles     → everything else (dashboard, orders, etc.)
+      // Layout gates are the second line of defence; this is the first.
+      const role = auth.user.role
+      const isCustomer = role === UserRole.CUSTOMER_USER
+      const isVendor = role === UserRole.VENDOR_USER
       const isPortal = pathname.startsWith("/portal")
-      if (isCustomer && !isPortal) {
-        return NextResponse.redirect(new URL("/portal", request.url))
+      const isCarrier = pathname.startsWith("/carrier")
+
+      if (isCustomer) {
+        if (!isPortal) return NextResponse.redirect(new URL("/portal", request.url))
+        return true
       }
-      if (!isCustomer && isPortal) {
+      if (isVendor) {
+        if (!isCarrier) return NextResponse.redirect(new URL("/carrier", request.url))
+        return true
+      }
+      // DGK roles — must not stray into the other portals.
+      if (isPortal || isCarrier) {
         return NextResponse.redirect(new URL("/dashboard", request.url))
       }
       return true
