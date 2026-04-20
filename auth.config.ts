@@ -1,4 +1,7 @@
 import type { NextAuthConfig } from "next-auth"
+import { NextResponse } from "next/server"
+
+import { UserRole } from "@/prisma/generated/enums"
 
 /**
  * Runtime-agnostic subset of the NextAuth config, safe for `proxy.ts` to
@@ -39,7 +42,20 @@ export const authConfig = {
       // /login is always reachable; everything else needs a session.
       // Proxy's matcher already excludes static assets + /api/auth.
       if (pathname.startsWith("/login")) return true
-      return !!auth
+      if (!auth) return false
+
+      // Role-aware routing. Customer sessions may only see `/portal/*`;
+      // DGK sessions may only see the DGK surface. Single source of
+      // truth — layout gates are still there as a second line.
+      const isCustomer = auth.user.role === UserRole.CUSTOMER_USER
+      const isPortal = pathname.startsWith("/portal")
+      if (isCustomer && !isPortal) {
+        return NextResponse.redirect(new URL("/portal", request.url))
+      }
+      if (!isCustomer && isPortal) {
+        return NextResponse.redirect(new URL("/dashboard", request.url))
+      }
+      return true
     },
   },
 } satisfies NextAuthConfig
