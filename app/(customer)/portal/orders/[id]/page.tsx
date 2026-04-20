@@ -2,6 +2,8 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 
 import { auth } from "@/auth"
+import LiveMapClient from "@/components/tracking/live-map-client"
+import { TrackingRefresher } from "@/components/tracking/tracking-refresher"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Table,
@@ -15,7 +17,8 @@ import { formatIDR } from "@/lib/currency"
 import { customerOrderScope } from "@/lib/customer-queries"
 import { db } from "@/lib/db"
 import { formatWIBDate, formatWIBDateTime } from "@/lib/time"
-import { type Region } from "@/prisma/generated/enums"
+import { getTrackingSnapshot } from "@/lib/tracking-queries"
+import { DeliveryOrderStatus, type Region } from "@/prisma/generated/enums"
 
 // TODO(phase-2): cross-route-group import. These three components are shared
 // between DGK and customer views but still live under `(dgk)/`. Promote them
@@ -90,6 +93,21 @@ export default async function CustomerOrderDetailPage({
 
   const packing = order.packingList as { items: PackingItem[] } | null
   const items = packing?.items ?? []
+
+  // Customer view shows the pin only (no breadcrumb trail) for every DO
+  // on this order. Fetch all snapshots in parallel so the render is
+  // still a single DB round-trip from the user's perspective.
+  const snapshots = await Promise.all(
+    order.deliveryOrders.map((deliv) =>
+      getTrackingSnapshot(deliv.id, { withTrail: false }),
+    ),
+  )
+  const snapshotByDoId = new Map(
+    order.deliveryOrders.map((deliv, i) => [deliv.id, snapshots[i]!]),
+  )
+  const anyDispatched = order.deliveryOrders.some(
+    (deliv) => deliv.status === DeliveryOrderStatus.DISPATCHED,
+  )
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -233,52 +251,70 @@ export default async function CustomerOrderDetailPage({
               tracking here once DGK dispatches your shipment.
             </p>
           ) : (
-            order.deliveryOrders.map((deliv) => (
-              <div key={deliv.id} className="space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="font-mono text-sm">{deliv.doNumber}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Carrier: {deliv.vendor.organization.name}
-                    </p>
+            order.deliveryOrders.map((deliv) => {
+              const snapshot = snapshotByDoId.get(deliv.id)
+              const pin = snapshot?.pin ?? null
+              return (
+                <div key={deliv.id} className="space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-mono text-sm">{deliv.doNumber}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Carrier: {deliv.vendor.organization.name}
+                      </p>
+                    </div>
+                    <StatusBadge status={deliv.status} />
                   </div>
-                  <StatusBadge status={deliv.status} />
+
+                  <StatusTimeline
+                    deliveryOrder={{
+                      createdAt: deliv.createdAt,
+                      dispatchedAt: deliv.dispatchedAt,
+                      deliveredAt: deliv.deliveredAt,
+                      assignedBy: deliv.assignedBy,
+                    }}
+                    checklist={deliv.checklist}
+                    pod={
+                      deliv.proofOfDelivery
+                        ? {
+                            createdAt: deliv.proofOfDelivery.createdAt,
+                            verifiedAt: deliv.proofOfDelivery.verifiedAt,
+                            receiverName: deliv.proofOfDelivery.receiverName,
+                            uploadedBy: deliv.proofOfDelivery.uploadedBy,
+                            verifiedByDgk: deliv.proofOfDelivery.verifiedByDgk,
+                          }
+                        : null
+                    }
+                  />
+
+                  {pin && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Live location
+                      </p>
+                      <LiveMapClient pin={pin} />
+                      <p className="text-xs text-muted-foreground">
+                        Last fix {formatWIBDateTime(pin.recordedAt)}
+                      </p>
+                    </div>
+                  )}
+
+                  {deliv.proofOfDelivery && (
+                    <div className="rounded-md border p-4">
+                      <h3 className="mb-3 text-sm font-medium">
+                        Proof of delivery
+                      </h3>
+                      <PodDisplay pod={deliv.proofOfDelivery} />
+                    </div>
+                  )}
                 </div>
-
-                <StatusTimeline
-                  deliveryOrder={{
-                    createdAt: deliv.createdAt,
-                    dispatchedAt: deliv.dispatchedAt,
-                    deliveredAt: deliv.deliveredAt,
-                    assignedBy: deliv.assignedBy,
-                  }}
-                  checklist={deliv.checklist}
-                  pod={
-                    deliv.proofOfDelivery
-                      ? {
-                          createdAt: deliv.proofOfDelivery.createdAt,
-                          verifiedAt: deliv.proofOfDelivery.verifiedAt,
-                          receiverName: deliv.proofOfDelivery.receiverName,
-                          uploadedBy: deliv.proofOfDelivery.uploadedBy,
-                          verifiedByDgk: deliv.proofOfDelivery.verifiedByDgk,
-                        }
-                      : null
-                  }
-                />
-
-                {deliv.proofOfDelivery && (
-                  <div className="rounded-md border p-4">
-                    <h3 className="mb-3 text-sm font-medium">
-                      Proof of delivery
-                    </h3>
-                    <PodDisplay pod={deliv.proofOfDelivery} />
-                  </div>
-                )}
-              </div>
-            ))
+              )
+            })
           )}
         </CardContent>
       </Card>
+
+      <TrackingRefresher enabled={anyDispatched} />
     </div>
   )
 }

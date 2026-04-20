@@ -2,12 +2,15 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 
 import { auth } from "@/auth"
+import LiveMapClient from "@/components/tracking/live-map-client"
+import { TrackingRefresher } from "@/components/tracking/tracking-refresher"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatIDR } from "@/lib/currency"
 import { db } from "@/lib/db"
 import { formatWIBDate, formatWIBDateTime } from "@/lib/time"
+import { getTrackingSnapshot } from "@/lib/tracking-queries"
 import {
   DeliveryOrderStatus,
   InvoiceType,
@@ -103,6 +106,12 @@ export default async function DeliveryDetailPage({ params }: PageProps) {
   const hasCustomerInvoice = deliveryOrder.invoices.some(
     (inv) => inv.type === InvoiceType.DGK_TO_CUSTOMER,
   )
+
+  // DGK sees pin + trail. Query runs even for non-DISPATCHED DOs so a
+  // completed delivery still shows its route on the map.
+  const tracking = await getTrackingSnapshot(deliveryOrder.id, {
+    withTrail: true,
+  })
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -212,6 +221,27 @@ export default async function DeliveryDetailPage({ params }: PageProps) {
           />
         </CardContent>
       </Card>
+
+      {tracking.pin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Live tracking</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <LiveMapClient pin={tracking.pin} trail={tracking.trail} />
+            <p className="text-xs text-muted-foreground">
+              Last fix {formatWIBDateTime(tracking.pin.recordedAt)}
+              {tracking.pin.accuracyMeters
+                ? ` · ±${Math.round(tracking.pin.accuracyMeters)} m`
+                : ""}
+              {" · "}
+              {tracking.trail.length} point
+              {tracking.trail.length === 1 ? "" : "s"} plotted
+            </p>
+            <TrackingRefresher enabled={isDispatched} />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">

@@ -2,11 +2,14 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 
 import { auth } from "@/auth"
+import LiveMapClient from "@/components/tracking/live-map-client"
+import { TrackingRefresher } from "@/components/tracking/tracking-refresher"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatIDR } from "@/lib/currency"
 import { db } from "@/lib/db"
 import { formatWIBDate, formatWIBDateTime } from "@/lib/time"
+import { getTrackingSnapshot } from "@/lib/tracking-queries"
 import { vendorDeliveryScope } from "@/lib/vendor-queries"
 import {
   DeliveryOrderStatus,
@@ -25,6 +28,8 @@ import { PodDisplay } from "../../../../(dgk)/deliveries/[id]/_components/pod-di
 import { PodUploadForm } from "../../../../(dgk)/deliveries/[id]/_components/pod-upload-form"
 import { StatusActions } from "../../../../(dgk)/deliveries/[id]/_components/status-actions"
 import { StatusTimeline } from "../../../../(dgk)/deliveries/[id]/_components/status-timeline"
+
+import { TrackingControls } from "./_components/tracking-controls"
 
 interface CarrierDeliveryDetailPageProps {
   params: Promise<{ id: string }>
@@ -102,6 +107,13 @@ export default async function CarrierDeliveryDetailPage({
   const pod = deliveryOrder.proofOfDelivery
   const isDispatched = deliveryOrder.status === DeliveryOrderStatus.DISPATCHED
   const showUploadForm = isDispatched && !pod
+
+  // Carrier sees their own trail (pin + breadcrumbs) when tracking data
+  // exists for this DO. We query even if not dispatched yet so the map
+  // can show a "delivered route" once the trip is done.
+  const tracking = await getTrackingSnapshot(deliveryOrder.id, {
+    withTrail: true,
+  })
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -230,6 +242,39 @@ export default async function CarrierDeliveryDetailPage({
           />
         </CardContent>
       </Card>
+
+      {(isDispatched || tracking.pin) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Live tracking</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isDispatched && (
+              <TrackingControls deliveryOrderId={deliveryOrder.id} />
+            )}
+            {tracking.pin ? (
+              <>
+                <LiveMapClient
+                  pin={tracking.pin}
+                  trail={tracking.trail}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Last fix {formatWIBDateTime(tracking.pin.recordedAt)}
+                  {tracking.pin.accuracyMeters
+                    ? ` · ±${Math.round(tracking.pin.accuracyMeters)} m`
+                    : ""}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No location shared yet. Start tracking to pin this delivery on
+                the map for DGK and the customer.
+              </p>
+            )}
+            <TrackingRefresher enabled={isDispatched} />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
