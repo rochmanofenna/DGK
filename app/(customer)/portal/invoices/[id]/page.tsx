@@ -200,6 +200,11 @@ export default async function CustomerInvoiceDetailPage({ params }: PageProps) {
             </p>
           )}
 
+          {/* TODO(phase-2): customers are read-only for payments — DGK records
+              them on their behalf after reconciling the bank transfer / QRIS
+              receipt. A real customer portal would let them "declare" a
+              payment (upload receipt, enter reference) that flows into a
+              finance review queue. Out of MVP scope; revisit with finance. */}
           {invoice.payments.length > 0 ? (
             <div className="space-y-2">
               <h3 className="text-sm font-medium text-muted-foreground">

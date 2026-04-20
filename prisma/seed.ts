@@ -6,18 +6,22 @@
  *    that needs a real value from Dylan.
  *
  * Placeholders in this file (find-and-replace when reals arrive):
- *   - User passwords (ops-dev-pw-change-me, finance-dev-pw-change-me)
- *   - User names (Rina Pratama, Bayu Santoso)
+ *   - DGK user passwords (ops-dev-pw-change-me, finance-dev-pw-change-me)
+ *   - Customer user passwords (berkah/sumber/arumi-dev-pw-change-me)
+ *   - User names (Rina Pratama, Bayu Santoso, + 3 customer contacts)
  *   - DGK: address, taxId, contactPerson, phone, bankName, bankAccount
  *   - Transcoll: address, taxId (other fields come from SPEC §11 verbatim)
  *   - All 3 customers: names, taxIds, addresses, contactPerson, phone
  *   - All 3 customer creditTermsDays (pending Dylan — SPEC open Q)
+ *   - All 3 customer-user real emails (placeholder .dev domains for now)
  *
  * Idempotent: every seeded row uses a stable `seed_*` id so re-runs update
  * in place instead of creating duplicates.
  *
  * Run: npx prisma db seed
  */
+
+import "dotenv/config"
 
 import { hash } from "bcryptjs"
 import { PrismaPg } from "@prisma/adapter-pg"
@@ -31,10 +35,15 @@ const prisma = new PrismaClient({ adapter })
 
 // ⚠ DEV ONLY — distinct password per role so wrong-role session bugs are
 // visible in testing (identical passwords would mask a login that didn't
-// actually switch).
+// actually switch). Customer users each get a distinct password too so
+// cross-tenant leak tests can't accidentally succeed by typing the wrong
+// creds and happening to land somewhere real.
 const PASSWORDS: Record<string, string> = {
-  "ops@dgk.dev": "ops-dev-pw-change-me",
-  "finance@dgk.dev": "finance-dev-pw-change-me",
+  "ops@dgk.dev":               "ops-dev-pw-change-me",
+  "finance@dgk.dev":           "finance-dev-pw-change-me",
+  "customer@berkahpangan.dev": "berkah-dev-pw-change-me",
+  "customer@sumberrasa.dev":   "sumber-dev-pw-change-me",
+  "customer@arumi.dev":        "arumi-dev-pw-change-me",
 }
 
 async function seedOrganizations() {
@@ -188,6 +197,51 @@ async function seedUsers() {
     },
     update: { passwordHash: financeHash },
   })
+
+  // Customer users. One per seeded customer org — deliberate so cross-tenant
+  // isolation is visible: log in as berkah, you should never see sumber's
+  // orders or invoices. If you can, `customerOrderScope` / `customerInvoiceScope`
+  // has a bug and it's a data leak, not a UI glitch.
+  const customerUsers = [
+    {
+      id:             "seed_user_cust_berkah",
+      email:          "customer@berkahpangan.dev",
+      organizationId: "seed_cust_berkah_org",
+      name:           "Ibu Sari",                 // [DEV PLACEHOLDER]
+      phone:          "+62 811 2000 001",         // [DEV PLACEHOLDER]
+    },
+    {
+      id:             "seed_user_cust_sumber",
+      email:          "customer@sumberrasa.dev",
+      organizationId: "seed_cust_sumber_org",
+      name:           "Pak Agus",                 // [DEV PLACEHOLDER]
+      phone:          "+62 811 2000 002",         // [DEV PLACEHOLDER]
+    },
+    {
+      id:             "seed_user_cust_arumi",
+      email:          "customer@arumi.dev",
+      organizationId: "seed_cust_arumi_org",
+      name:           "Ibu Mega",                 // [DEV PLACEHOLDER]
+      phone:          "+62 811 2000 003",         // [DEV PLACEHOLDER]
+    },
+  ]
+  for (const cu of customerUsers) {
+    const pwHash = await hash(PASSWORDS[cu.email], 10)
+    await prisma.user.upsert({
+      where: { email: cu.email },
+      create: {
+        id: cu.id,
+        email: cu.email,
+        passwordHash: pwHash,
+        role: "CUSTOMER_USER",
+        name: cu.name,
+        phone: cu.phone,
+        organizationId: cu.organizationId,
+      },
+      // Rehash on re-seed so password rotation in PASSWORDS propagates.
+      update: { passwordHash: pwHash },
+    })
+  }
 }
 
 async function seedRateCard() {
@@ -265,8 +319,11 @@ async function main() {
 
   console.log("Seed complete.")
   console.log(`  Organizations:   5 (1 DGK, 1 vendor, 3 customers)`)
-  console.log(`  Users:           ops@dgk.dev / ${PASSWORDS["ops@dgk.dev"]}`)
+  console.log(`  DGK users:       ops@dgk.dev / ${PASSWORDS["ops@dgk.dev"]}`)
   console.log(`                   finance@dgk.dev / ${PASSWORDS["finance@dgk.dev"]}`)
+  console.log(`  Customer users:  customer@berkahpangan.dev / ${PASSWORDS["customer@berkahpangan.dev"]}`)
+  console.log(`                   customer@sumberrasa.dev  / ${PASSWORDS["customer@sumberrasa.dev"]}`)
+  console.log(`                   customer@arumi.dev       / ${PASSWORDS["customer@arumi.dev"]}`)
   console.log(`  Vendor:          Transcoll (seed_transcoll_vendor)`)
   console.log(`  Customers:       Berkah Pangan, Sumber Rasa, Arumi Boga`)
   console.log(`  Rate card:       seed_transcoll_ratecard_v1, ${rateCount} entries`)

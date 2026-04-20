@@ -17,6 +17,10 @@ import { db } from "@/lib/db"
 import { formatWIBDate, formatWIBDateTime } from "@/lib/time"
 import { type Region } from "@/prisma/generated/enums"
 
+// TODO(phase-2): cross-route-group import. These three components are shared
+// between DGK and customer views but still live under `(dgk)/`. Promote them
+// to `app/_components/` (or `components/shared/`) once a third consumer
+// appears — per the "abstract after two" rule, two callers aren't enough yet.
 import { StatusBadge } from "../../../../(dgk)/orders/_components/status-badge"
 import { PodDisplay } from "../../../../(dgk)/deliveries/[id]/_components/pod-display"
 import { StatusTimeline } from "../../../../(dgk)/deliveries/[id]/_components/status-timeline"

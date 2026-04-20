@@ -1,5 +1,13 @@
 "use client"
 
+// TODO(phase-2): this editor is a near-duplicate of the DGK side's
+// `app/(dgk)/orders/_components/packing-list-editor.tsx`. Kept duplicated on
+// purpose — schemas diverge (CustomerOrderSubmissionValues vs OrderFormValues)
+// and generalizing before a third form appears would be premature per the
+// "abstract after two, not before" rule. If a third packing-list form shows
+// up (e.g. a vendor return flow), factor out a generic editor parameterized
+// on the form type.
+
 import { Trash2 } from "lucide-react"
 import { useFieldArray, type Control } from "react-hook-form"
 
