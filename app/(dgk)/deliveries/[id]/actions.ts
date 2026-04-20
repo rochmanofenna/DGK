@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache"
 
 import { requireRole } from "@/lib/auth-helpers"
 import { db } from "@/lib/db"
-import { canTransition } from "@/lib/do-state-machine"
+import { canTransitionAsRole } from "@/lib/do-state-machine"
 import { renderInvoicePDF } from "@/lib/pdf/invoice-pdf"
 import { nextInvoiceNumber } from "@/lib/numbering"
 import {
@@ -45,7 +45,19 @@ export type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string }
 
+// DGK-only mutations (POD upload, checklist, POD verification, invoice).
+// Vendors get their own narrower gate for status transitions below.
+// TODO(sub-commit-3): POD upload + checklist widen to include VENDOR_USER
+// once the carrier DO detail page ships.
 const DO_MUTATION_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.OPS_MANAGER]
+// Status transitions are now role-gated per-transition by the state
+// machine; this broad allow-list is defence-in-depth so FINANCE_ADMIN /
+// CUSTOMER_USER can't even attempt the action.
+const DO_STATUS_UPDATE_ROLES: UserRole[] = [
+  UserRole.ADMIN,
+  UserRole.OPS_MANAGER,
+  UserRole.VENDOR_USER,
+]
 const INVOICE_CREATE_ROLES: UserRole[] = [
   UserRole.ADMIN,
   UserRole.OPS_MANAGER,
@@ -85,22 +97,37 @@ export async function updateDOStatusAction(
   }
   const { deliveryOrderId, newStatus } = parsed.data
 
-  const gate = await requireRole(DO_MUTATION_ROLES, "Your role can't update deliveries")
+  const gate = await requireRole(
+    DO_STATUS_UPDATE_ROLES,
+    "Your role can't update deliveries",
+  )
   if (!gate.ok) return gate
 
   const deliveryOrder = await db.deliveryOrder.findUnique({
     where: { id: deliveryOrderId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, vendor: { select: { organizationId: true } } },
   })
   if (!deliveryOrder) return { ok: false, error: "Delivery order not found" }
 
-  if (!canTransition(deliveryOrder.status, newStatus)) {
+  // Vendor tenancy: a VENDOR_USER can only touch their own DOs. DGK
+  // OPS/ADMIN can touch any DO (that's the override path).
+  if (
+    gate.session.user.role === UserRole.VENDOR_USER &&
+    deliveryOrder.vendor.organizationId !== gate.session.user.organizationId
+  ) {
+    return { ok: false, error: "Delivery order not found" }
+  }
+
+  if (!canTransitionAsRole(deliveryOrder.status, newStatus, gate.session.user.role)) {
     return {
       ok: false,
       error: `Can't transition from ${deliveryOrder.status} to ${newStatus}`,
     }
   }
 
+  // TODO(phase-3): write a DOStatusChange audit row with actorUserId here
+  // so we can tell whether a transition was vendor-driven or DGK-override.
+  // Model doesn't exist yet; ships with the audit-trail sub-commit.
   const data: { status: DeliveryOrderStatus; dispatchedAt?: Date } = {
     status: newStatus,
   }

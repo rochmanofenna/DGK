@@ -129,11 +129,17 @@ export default async function DeliveryDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      <StatusActions
-        deliveryOrderId={deliveryOrder.id}
-        currentStatus={deliveryOrder.status}
-        canMutate={canMutate}
-      />
+      {/* The state machine decides which buttons render for this role;
+       * a FINANCE_ADMIN viewing the page sees no buttons at all, so we
+       * can render unconditionally — if `session` is somehow missing
+       * the layout already redirected to /login. */}
+      {session && (
+        <StatusActions
+          deliveryOrderId={deliveryOrder.id}
+          currentStatus={deliveryOrder.status}
+          role={session.user.role}
+        />
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
