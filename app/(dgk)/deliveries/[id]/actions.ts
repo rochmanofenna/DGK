@@ -45,24 +45,37 @@ export type ActionResult<T = void> =
   | { ok: true; data: T }
   | { ok: false; error: string }
 
-// DGK-only mutations (POD upload, checklist, POD verification, invoice).
-// Vendors get their own narrower gate for status transitions below.
-// TODO(sub-commit-3): POD upload + checklist widen to include VENDOR_USER
-// once the carrier DO detail page ships.
-const DO_MUTATION_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.OPS_MANAGER]
-// Status transitions are now role-gated per-transition by the state
-// machine; this broad allow-list is defence-in-depth so FINANCE_ADMIN /
-// CUSTOMER_USER can't even attempt the action.
-const DO_STATUS_UPDATE_ROLES: UserRole[] = [
+// POD upload, checklist, and status updates are vendor-driven with DGK
+// OPS/ADMIN as manual-override. FINANCE_ADMIN and CUSTOMER_USER are
+// excluded. POD verification (below) stays DGK-only — it's the trust
+// checkpoint that signs off on the delivery.
+const DO_OPS_ROLES: UserRole[] = [
   UserRole.ADMIN,
   UserRole.OPS_MANAGER,
   UserRole.VENDOR_USER,
 ]
+// POD verification is the DGK sign-off; a vendor cannot verify their own
+// POD (that would defeat the trust checkpoint).
+const POD_VERIFY_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.OPS_MANAGER]
 const INVOICE_CREATE_ROLES: UserRole[] = [
   UserRole.ADMIN,
   UserRole.OPS_MANAGER,
   UserRole.FINANCE_ADMIN,
 ]
+
+/**
+ * Tenancy helper: a VENDOR_USER may only touch DOs assigned to their own
+ * vendor org. DGK OPS/ADMIN bypass this (override path). Returns true if
+ * the action is allowed to proceed.
+ */
+function vendorTenancyAllows(
+  role: UserRole,
+  sessionOrgId: string,
+  doVendorOrgId: string,
+): boolean {
+  if (role !== UserRole.VENDOR_USER) return true
+  return sessionOrgId === doVendorOrgId
+}
 
 // Human labels used when baking data into the PDF. Small maps, duplicated
 // from order-form.tsx because that file is a Client Component and the enum
@@ -98,7 +111,7 @@ export async function updateDOStatusAction(
   const { deliveryOrderId, newStatus } = parsed.data
 
   const gate = await requireRole(
-    DO_STATUS_UPDATE_ROLES,
+    DO_OPS_ROLES,
     "Your role can't update deliveries",
   )
   if (!gate.ok) return gate
@@ -109,11 +122,15 @@ export async function updateDOStatusAction(
   })
   if (!deliveryOrder) return { ok: false, error: "Delivery order not found" }
 
-  // Vendor tenancy: a VENDOR_USER can only touch their own DOs. DGK
-  // OPS/ADMIN can touch any DO (that's the override path).
+  // Vendor tenancy: a VENDOR_USER can only touch their own DOs. Return
+  // the same "not found" message as a missing row — we don't want to
+  // confirm DO existence to a vendor who shouldn't know about it.
   if (
-    gate.session.user.role === UserRole.VENDOR_USER &&
-    deliveryOrder.vendor.organizationId !== gate.session.user.organizationId
+    !vendorTenancyAllows(
+      gate.session.user.role,
+      gate.session.user.organizationId,
+      deliveryOrder.vendor.organizationId,
+    )
   ) {
     return { ok: false, error: "Delivery order not found" }
   }
@@ -152,14 +169,23 @@ export async function logChecklistEntryAction(
   }
   const { deliveryOrderId, checkpoint, notes, photoUrl } = parsed.data
 
-  const gate = await requireRole(DO_MUTATION_ROLES, "Your role can't log checkpoints")
+  const gate = await requireRole(DO_OPS_ROLES, "Your role can't log checkpoints")
   if (!gate.ok) return gate
 
-  const exists = await db.deliveryOrder.findUnique({
+  const deliveryOrder = await db.deliveryOrder.findUnique({
     where: { id: deliveryOrderId },
-    select: { id: true },
+    select: { id: true, vendor: { select: { organizationId: true } } },
   })
-  if (!exists) return { ok: false, error: "Delivery order not found" }
+  if (!deliveryOrder) return { ok: false, error: "Delivery order not found" }
+  if (
+    !vendorTenancyAllows(
+      gate.session.user.role,
+      gate.session.user.organizationId,
+      deliveryOrder.vendor.organizationId,
+    )
+  ) {
+    return { ok: false, error: "Delivery order not found" }
+  }
 
   const entry = await db.deliveryChecklist.create({
     data: {
@@ -182,7 +208,7 @@ export async function uploadPodAction(
   _prev: PodUploadState,
   formData: FormData,
 ): Promise<PodUploadState> {
-  const gate = await requireRole(DO_MUTATION_ROLES, "Your role can't upload POD")
+  const gate = await requireRole(DO_OPS_ROLES, "Your role can't upload POD")
   if (!gate.ok) return { ok: false, error: gate.error }
 
   const parsedMeta = podMetadataSchema.safeParse({
@@ -200,13 +226,25 @@ export async function uploadPodAction(
   }
   const meta = parsedMeta.data
 
-  // Load DO + existing POD so we don't orphan an upload against a
-  // cancelled DO or overwrite a verified POD silently.
+  // Load DO + vendor org (for tenancy) + existing POD so we don't orphan
+  // an upload against a cancelled DO or overwrite a verified POD silently.
   const deliveryOrder = await db.deliveryOrder.findUnique({
     where: { id: meta.deliveryOrderId },
-    include: { proofOfDelivery: { select: { id: true, verifiedAt: true } } },
+    include: {
+      proofOfDelivery: { select: { id: true, verifiedAt: true } },
+      vendor: { select: { organizationId: true } },
+    },
   })
   if (!deliveryOrder) return { ok: false, error: "Delivery order not found" }
+  if (
+    !vendorTenancyAllows(
+      gate.session.user.role,
+      gate.session.user.organizationId,
+      deliveryOrder.vendor.organizationId,
+    )
+  ) {
+    return { ok: false, error: "Delivery order not found" }
+  }
   if (deliveryOrder.status !== DeliveryOrderStatus.DISPATCHED) {
     return {
       ok: false,
@@ -301,7 +339,7 @@ export async function uploadPodAction(
 export async function verifyPodAction(
   deliveryOrderId: string,
 ): Promise<ActionResult> {
-  const gate = await requireRole(DO_MUTATION_ROLES, "Your role can't verify POD")
+  const gate = await requireRole(POD_VERIFY_ROLES, "Your role can't verify POD")
   if (!gate.ok) return gate
 
   const deliveryOrder = await db.deliveryOrder.findUnique({
