@@ -34,7 +34,7 @@ const labelByStatus: Record<AnyStatus, string> = {
 // reads as destructive, PAID/DELIVERED/CONFIRMED as success (emerald override),
 // terminal-but-neutral like DRAFT as secondary, OVERDUE as destructive-leaning.
 const classByStatus: Record<AnyStatus, string> = {
-  DRAFT: "bg-muted text-muted-foreground",
+  DRAFT: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200",
   SUBMITTED: "",
   ASSIGNED: "",
   PENDING: "",

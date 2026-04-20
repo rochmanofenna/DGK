@@ -41,3 +41,9 @@ export const assignVendorSchema = z.object({
   rateCardEntryId: z.string().trim().min(1),
 })
 export type AssignVendorValues = z.infer<typeof assignVendorSchema>
+
+export const approveDraftSchema = z.object({
+  orderId: z.string().trim().min(1),
+  customerPriceIDR: z.number().int().positive("Price must be > 0"),
+})
+export type ApproveDraftValues = z.infer<typeof approveDraftSchema>

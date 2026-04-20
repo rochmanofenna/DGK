@@ -21,6 +21,7 @@ import { OrderStatus, UserRole, type Region } from "@/prisma/generated/enums"
 
 import { StatusBadge } from "../_components/status-badge"
 
+import { ApproveDraftCard } from "./approve-draft-card"
 import { AssignVendorDialog } from "./assign-vendor-dialog"
 import { CancelOrderButton } from "./cancel-order-button"
 
@@ -65,6 +66,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
   const packing = order.packingList as { items: PackingItem[] } | null
   const items = packing?.items ?? []
 
+  const isDraft = order.status === OrderStatus.DRAFT
   const cancellable = order.status === OrderStatus.SUBMITTED
   const assignable =
     order.status === OrderStatus.SUBMITTED && order.deliveryOrders.length === 0
@@ -74,6 +76,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
     !!session &&
     (session.user.role === UserRole.ADMIN ||
       session.user.role === UserRole.OPS_MANAGER)
+  const canApproveDraft = canAssign
 
   // Only query rate-card candidates when we're actually going to offer
   // assignment — no point hitting the DB for ASSIGNED / DELIVERED / etc.
@@ -96,8 +99,8 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
             <StatusBadge status={order.status} />
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Created {formatWIBDateTime(order.createdAt)} by{" "}
-            {order.createdBy.name}
+            {isDraft ? "Submitted" : "Created"}{" "}
+            {formatWIBDateTime(order.createdAt)} by {order.createdBy.name}
           </p>
         </div>
         <div className="flex gap-2">
@@ -108,6 +111,14 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
         </div>
       </div>
 
+      {isDraft && (
+        <ApproveDraftCard
+          orderId={order.id}
+          disabled={!canApproveDraft}
+          disabledReason="Ops Manager role required"
+        />
+      )}
+
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
@@ -116,7 +127,10 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           <CardContent className="space-y-1 text-sm">
             <p className="font-medium">{order.customer.organization.name}</p>
             <p className="text-muted-foreground">
-              Agreed price: {formatIDR(order.customerPriceIDR ?? 0)}
+              Agreed price:{" "}
+              {order.customerPriceIDR
+                ? formatIDR(order.customerPriceIDR)
+                : "Pending approval"}
             </p>
           </CardContent>
         </Card>
@@ -208,6 +222,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
         </Card>
       )}
 
+      {!isDraft && (
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Deliveries</CardTitle>
@@ -249,6 +264,7 @@ export default async function OrderDetailPage({ params }: OrderDetailPageProps) 
           )}
         </CardContent>
       </Card>
+      )}
     </div>
   )
 }

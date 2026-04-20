@@ -46,7 +46,7 @@ export default async function OrdersListPage({
       : undefined
   const customerFilter = params.customer || undefined
 
-  const [orders, customers] = await Promise.all([
+  const [orders, customers, draftCount] = await Promise.all([
     db.order.findMany({
       where: {
         ...(statusFilter ? { status: statusFilter } : {}),
@@ -62,7 +62,13 @@ export default async function OrdersListPage({
       select: { id: true, organization: { select: { name: true } } },
       orderBy: { organization: { name: "asc" } },
     }),
+    db.order.count({ where: { status: OrderStatus.DRAFT } }),
   ])
+
+  // Only show the DRAFT banner when the current view isn't already the
+  // DRAFT-only filter — otherwise it's noise on a page that already answers
+  // the question it's asking.
+  const showDraftBanner = draftCount > 0 && statusFilter !== OrderStatus.DRAFT
 
   return (
     <div className="space-y-6">
@@ -77,6 +83,20 @@ export default async function OrdersListPage({
           <Link href="/orders/new">New order</Link>
         </Button>
       </div>
+
+      {showDraftBanner && (
+        <Link
+          href="/orders?status=DRAFT"
+          className="flex items-center justify-between rounded-md border-2 border-amber-300/70 bg-amber-50/60 px-4 py-3 text-sm transition-colors hover:bg-amber-50 dark:border-amber-700/40 dark:bg-amber-950/20 dark:hover:bg-amber-950/30"
+        >
+          <span className="font-medium text-amber-900 dark:text-amber-100">
+            {draftCount} draft order{draftCount === 1 ? "" : "s"} awaiting review
+          </span>
+          <span className="text-xs text-amber-900/80 dark:text-amber-100/80">
+            Review &amp; publish →
+          </span>
+        </Link>
+      )}
 
       <form className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">

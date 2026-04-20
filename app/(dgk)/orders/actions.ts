@@ -8,8 +8,10 @@ import { nextDONumber, nextOrderNumber } from "@/lib/numbering"
 import { OrderStatus, UserRole } from "@/prisma/generated/enums"
 
 import {
+  approveDraftSchema,
   assignVendorSchema,
   orderFormSchema,
+  type ApproveDraftValues,
   type AssignVendorValues,
   type OrderFormValues,
 } from "./schemas"
@@ -21,6 +23,7 @@ export type ActionResult<T = void> =
 const ORDER_CREATE_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.OPS_MANAGER]
 const ORDER_CANCEL_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.OPS_MANAGER]
 const ASSIGN_VENDOR_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.OPS_MANAGER]
+const APPROVE_DRAFT_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.OPS_MANAGER]
 
 /** True iff `err` is a Prisma P2002 unique-constraint violation on `orderNumber`. */
 function isOrderNumberConflict(err: unknown): boolean {
@@ -237,4 +240,61 @@ export async function createDeliveryOrderAction(
     }
   }
   throw lastError
+}
+
+/**
+ * Approve a customer-submitted DRAFT by setting the agreed price and
+ * advancing it to SUBMITTED in a single update. From this point the
+ * order flows through the normal DGK pipeline (assign vendor → dispatch
+ * → deliver → invoice).
+ *
+ * Scope stays narrow on purpose: price only. If DGK wants to edit route,
+ * truck, or manifest before approving, that's a reject-and-resubmit
+ * conversation with the customer, not a silent edit.
+ */
+export async function approveDraftOrderAction(
+  input: ApproveDraftValues,
+): Promise<ActionResult> {
+  const parsed = approveDraftSchema.safeParse(input)
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid input",
+    }
+  }
+  const { orderId, customerPriceIDR } = parsed.data
+
+  const gate = await requireRole(
+    APPROVE_DRAFT_ROLES,
+    "Your role can't approve drafts",
+  )
+  if (!gate.ok) return gate
+
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    select: { id: true, status: true },
+  })
+  if (!order) return { ok: false, error: "Order not found" }
+  if (order.status !== OrderStatus.DRAFT) {
+    return {
+      ok: false,
+      error: `Order is already ${order.status.toLowerCase()} — nothing to approve`,
+    }
+  }
+
+  await db.order.update({
+    where: { id: orderId },
+    data: {
+      customerPriceIDR,
+      status: OrderStatus.SUBMITTED,
+    },
+  })
+
+  revalidatePath("/orders")
+  revalidatePath(`/orders/${orderId}`)
+  // The customer's portal reads the same row, so invalidate there too.
+  revalidatePath("/portal/orders")
+  revalidatePath(`/portal/orders/${orderId}`)
+  revalidatePath("/portal")
+  return { ok: true, data: undefined }
 }
