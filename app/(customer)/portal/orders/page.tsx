@@ -153,7 +153,7 @@ export default async function CustomerOrdersListPage({
                       formatIDR(o.customerPriceIDR)
                     ) : (
                       <span className="text-xs text-muted-foreground">
-                        Pending
+                        Pending review
                       </span>
                     )}
                   </TableCell>

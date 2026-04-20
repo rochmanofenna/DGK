@@ -192,6 +192,7 @@ export default async function CustomerDashboardPage() {
                   <TableHead>Pickup</TableHead>
                   <TableHead>Route</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Price</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -212,6 +213,15 @@ export default async function CustomerDashboardPage() {
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={o.status} />
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {o.customerPriceIDR ? (
+                        formatIDR(o.customerPriceIDR)
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          Pending review
+                        </span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
